@@ -77,6 +77,15 @@ def get_lat_lon_arrays(file_name, rs, cs, stride):
 
 def sum_grid_cells(array, block_size):
     
+    """
+    
+    Given array and block_size, reduce the resolution of the array by summing
+    the values in each block.
+    
+    Output is the reduced-resolution array.
+    
+    """
+    
     # Calculate the number of blocks in each dimension
    num_blocks_row = array.shape[0] // block_size
    num_blocks_col = array.shape[1] // block_size
@@ -92,6 +101,15 @@ def sum_grid_cells(array, block_size):
 
 
 def average_grid_cells(array, block_size):
+    
+    """
+    
+    Given array and block_size, reduce the resolution of the array by averaging
+    the values in each block.
+    
+    Output is the reduced-resolution array.
+    
+    """
     
     # Calculate the number of blocks in each dimension
    num_blocks_row = array.shape[0] // block_size
@@ -136,12 +154,15 @@ data = src.read(1, window = ((rows[0], rows[3]), (cols[0], cols[1])))
 
 src.close()
 
-del rows, cols, geotiff_filename, lats, lons, src
+del rows, cols, geotiff_filename, lats, lons, src, stride, c, i, r
 
-# Reduce resolution by summing the data and averaging lat and lon 
-# in 10x10 grid cells
+# =============================================================================
+# Reduce lat, lon and ship data resolution to match the CLAAS-3 resolution 
+# =============================================================================
+
 block_size = 10
 
+# Sum data and average lat and lon
 data_reduced = sum_grid_cells(data, block_size)
 lat_reduced = average_grid_cells(lat, block_size)
 lon_reduced = average_grid_cells(lon, block_size)
