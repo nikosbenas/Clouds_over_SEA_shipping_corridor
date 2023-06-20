@@ -16,6 +16,8 @@ import claas3_dictionaries as cdict
 import h5py
 from datetime import datetime 
 from netCDF4 import Dataset
+import matplotlib.pyplot as plt
+
 
 
 def get_rowcol_from_latlon(lat, lon, filename):
@@ -166,12 +168,48 @@ del rows, cols, geotiff_filename, src, stride, c, i, r
 # Reduce lat, lon and ship data resolution to match the CLAAS-3 resolution 
 # =============================================================================
 
-block_size = 10
+block_size_for_flag = 50
+# Sum data and average lat and lon
+data_for_flag = sum_grid_cells(data, block_size_for_flag)
+lat_for_flag = average_grid_cells(lat, block_size_for_flag)
+lon_for_flag = average_grid_cells(lon, block_size_for_flag)
 
+block_size = 10
 # Sum data and average lat and lon
 data_reduced = sum_grid_cells(data, block_size)
 lat_reduced = average_grid_cells(lat, block_size)
 lon_reduced = average_grid_cells(lon, block_size)
+
+del lat, lon, data
+
+# Test binary (flag) array creation based on threshold value
+flag_from_mean_plus_1s = np.where(data_for_flag > 
+                                  (np.mean(data_for_flag) + 
+                                   np.std(data_for_flag)), 1, 0)
+
+# outfile = './Flag_from_mean_plus_1sigma_0.25deg.png'
+# create_map(lat_for_flag, lon_for_flag, flag_from_mean_plus_1s, 0, 1, 
+#            'Ship density flag from mean + 1 std', '-', 'Reds', 'neither', 
+#            outfile, saveplot = True)
+
+# Increase resolution of flag to match the CLAAS-3 resolution
+# Define the desired higher resolution
+new_shape = data_reduced.shape
+
+# Compute the repeat factor along each axis
+repeat_factor = (new_shape[0] // flag_from_mean_plus_1s.shape[0], 
+                 new_shape[1] // flag_from_mean_plus_1s.shape[1])
+
+# Increase the resolution using the Kronecker product
+flag_reduced = np.kron(flag_from_mean_plus_1s, np.ones(repeat_factor))
+
+# outfile = './Flag_from_mean_plus_1sigma_0.05deg_new.png'
+# create_map(lat_reduced, lon_reduced, ship_flag, 0, 1, 
+#            'Ship density flag from mean + 1 std', '-', 'Reds', 'neither', 
+#            outfile, saveplot = True)
+
+
+
 
 # =============================================================================
 # Read CLAAS-3 data
@@ -222,11 +260,7 @@ for var in var_list:
         
         del claas3_file, claas3_data
 
-outfile = './testmap_SE_Atlantic_reduced_resolution.png'
 
-create_map(lat_reduced, lon_reduced, data_reduced, np.min(data_reduced), 
-           np.max(data_reduced), 'test', '-', 'Reds', 'neither', outfile, 
-           saveplot = True)
 
 # Access the dataset attributes
 # print(src.crs)        # Coordinate reference system
