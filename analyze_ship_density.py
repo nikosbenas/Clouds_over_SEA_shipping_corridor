@@ -17,7 +17,8 @@ import h5py
 from datetime import datetime 
 from netCDF4 import Dataset
 import matplotlib.pyplot as plt
-
+import multiprocessing
+import time
 
 
 def get_rowcol_from_latlon(lat, lon, filename):
@@ -180,17 +181,17 @@ data_reduced = sum_grid_cells(data, block_size)
 lat_reduced = average_grid_cells(lat, block_size)
 lon_reduced = average_grid_cells(lon, block_size)
 
-del lat, lon, data
+del lat, lon, data, block_size, block_size_for_flag, lat_for_flag, lon_for_flag
 
-# Test binary (flag) array creation based on threshold value
+
+# =============================================================================
+# Create binary flag to identify shipping corridors
+# =============================================================================
+
 flag_from_mean_plus_1s = np.where(data_for_flag > 
                                   (np.mean(data_for_flag) + 
                                    np.std(data_for_flag)), 1, 0)
 
-# outfile = './Flag_from_mean_plus_1sigma_0.25deg.png'
-# create_map(lat_for_flag, lon_for_flag, flag_from_mean_plus_1s, 0, 1, 
-#            'Ship density flag from mean + 1 std', '-', 'Reds', 'neither', 
-#            outfile, saveplot = True)
 
 # Increase resolution of flag to match the CLAAS-3 resolution
 # Define the desired higher resolution
@@ -203,12 +204,12 @@ repeat_factor = (new_shape[0] // flag_from_mean_plus_1s.shape[0],
 # Increase the resolution using the Kronecker product
 flag_reduced = np.kron(flag_from_mean_plus_1s, np.ones(repeat_factor))
 
-# outfile = './Flag_from_mean_plus_1sigma_0.05deg_new.png'
-# create_map(lat_reduced, lon_reduced, ship_flag, 0, 1, 
+del flag_from_mean_plus_1s, new_shape, repeat_factor, data_for_flag
+
+# outfile = './Flag_from_mean_plus_1sigma_0.25deg.png'
+# create_map(lat_for_flag, lon_for_flag, flag_from_mean_plus_1s, 0, 1, 
 #            'Ship density flag from mean + 1 std', '-', 'Reds', 'neither', 
 #            outfile, saveplot = True)
-
-
 
 
 # =============================================================================
@@ -217,7 +218,10 @@ flag_reduced = np.kron(flag_from_mean_plus_1s, np.ones(repeat_factor))
 
 # Define bounding box: ul lon, lr lat,lr lon, ul lat
 bounding_box = [lons[0], lats[2], lons[2], lats[0]]
+# Definitions for reading data:
 stride = 1
+read_mode = 'stride'
+read_cores = 10
 
 # Define variables to read
 var_list = ['cdnc_liq']
@@ -229,6 +233,10 @@ end_year = 2022
 # Create vector of dates for plotting
 dates = [datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d')
          for year in range(start_year, end_year + 1) for month in range(1, 13)]
+
+# =============================================================================
+# Read some CLAAS data once: lat, lon and VZA
+# =============================================================================
 
 # Read full CLAAS-3 lat and lon arrays, needed to find b.box indices
 claas3_l3_aux_data_file = '/data/windows/m/benas/Documents/CMSAF/CLAAS-3/' +\
@@ -243,6 +251,13 @@ istart, iend, jstart, jend = ctf.find_bbox_indices(bounding_box, latData,
                                                    lonData)
 
 del latData, lonData 
+
+# Read VZA to use as data threshold
+f = h5py.File(claas3_l3_aux_data_file, 'r')
+# Reading data only for lon0 = 0.0
+vzaData = f['satzen'][1, istart:iend:stride, jstart:jend:stride] 
+f.close()
+vzaMask = vzaData > 70
 
 for var in var_list:
     
@@ -261,22 +276,73 @@ for var in var_list:
         del claas3_file, claas3_data
 
 
+# =============================================================================
+# Loop over all years and months to read CLAAS data into a 3D array
+# =============================================================================
 
-# Access the dataset attributes
-# print(src.crs)        # Coordinate reference system
-# print(src.bounds)     # Bounding box coordinates
-# print(src.width)      # Width of the raster in pixels
-# print(src.height)     # Height of the raster in pixels
-# print(src.count)      # Number of bands in the raster
-# print(src.dtypes)     # Data types of the bands
-# print(src.transform)  # Affine transformation matrix
+    # Create a list of arguments for each combination of year and month
+    args_list = [(year, month, istart, iend, jstart, jend, stride, 
+                  cdict.cdr_folder[year], var, lat_claas, lon_claas, vzaMask, 
+                  read_mode) for year in range(start_year, end_year + 1) 
+                 for month in range(1, 13)]
+        
+    # Create a multiprocessing pool with the desired number of cores
+    pool = multiprocessing.Pool(read_cores)
+        
+    # Use the pool to call the function with the given arguments in parallel
+    start_time = time.time()
+    var_data_stack = pool.map(ctf.read_data_parallel, args_list)
+    print("Read data with %d cores in %s seconds" % (read_cores, time.time() -
+                                                     start_time))
+        
+    # Close the pool when you're done
+    pool.close()
+        
+    del args_list
+        
+    # Convert the results to a numpy array
+    var_data_stack = np.dstack(var_data_stack)
+    var_data_stack.filled(np.nan)
+    var_data_stack = var_data_stack.data
+    var_data_stack[var_data_stack == -999] = np.nan
+
+# =============================================================================
+# OPTIONAL CODE: Calculate time series average per grid cell
+# =============================================================================
+    var_data_mean = np.nanmean(var_data_stack, axis = 2)
+    var_data_nmonths = (100 * (np.nansum(var_data_stack, axis = 2) / 
+                               var_data_mean) / var_data_stack.shape[2])
+
+# =============================================================================
+# Create some test maps
+# =============================================================================
+
+# Flip ship data and flag upside down to match with CLAAS conventions
+lat_reduced = np.flipud(lat_reduced)
+flag_reduced = np.flipud(flag_reduced)
+
+outfile = './CDNC_average_all.png'
+create_map(lat_claas, lon_claas, var_data_mean, np.min(var_data_mean), 
+           np.max(var_data_mean), 'CDNC average', 'cm-3', 'viridis', 'neither', 
+            outfile, saveplot = False)
 
 
-# # Read the raster data as a NumPy array
-# data = src.read(1)
+outfile = './Ship_flag.png'
+create_map(lat_claas, lon_claas, flag_reduced, 0, 1, 'Ship density flag', '-', 
+           'Reds', 'neither', outfile, saveplot = True)
 
-# # Perform further operations on the data or the dataset
-# # For example, you can visualize the raster using Matplotlib or other libraries
+# Mask non-ship-corridor areas
+var_data_mean_only_ships = np.where(flag_reduced == 0, np.nan, var_data_mean)
+outfile = './CDNC_average_only_ships.png'
+create_map(lat_claas, lon_claas, var_data_mean_only_ships, 
+           np.min(var_data_mean), np.max(var_data_mean), 
+           'CDNC average ships', 'cm-3', 
+           'viridis', 'neither', outfile, saveplot = True)
 
-# # Close the dataset
-# src.close()
+# Mask ship-corridor areas
+var_data_mean_no_ships = np.where(flag_reduced == 1, np.nan, var_data_mean)
+outfile = './CDNC_average_no_ships.png'
+create_map(lat_claas, lon_claas, var_data_mean_no_ships, 
+           np.min(var_data_mean), np.max(var_data_mean), 
+           'CDNC average no ships', 'cm-3', 
+           'viridis', 'neither', outfile, saveplot = True)
