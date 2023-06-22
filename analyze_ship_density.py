@@ -101,7 +101,8 @@ def sum_grid_cells(array, block_size):
    
     # Reshape the array into blocks of the specified size
     blocks = array[:num_blocks_row * block_size, :num_blocks_col * block_size]
-    blocks = blocks.reshape(num_blocks_row, block_size, num_blocks_col, block_size)
+    blocks = blocks.reshape(num_blocks_row, block_size, num_blocks_col, 
+                            block_size)
    
     # Calculate the sum of values within each block
     block_sums = np.sum(blocks, axis=(1, 3))
@@ -126,7 +127,8 @@ def average_grid_cells(array, block_size):
    
     # Reshape the array into blocks of the specified size
     blocks = array[:num_blocks_row * block_size, :num_blocks_col * block_size]
-    blocks = blocks.reshape(num_blocks_row, block_size, num_blocks_col, block_size)
+    blocks = blocks.reshape(num_blocks_row, block_size, num_blocks_col, 
+                            block_size)
    
     # Calculate the sum of values within each block
     block_averages = np.mean(blocks, axis=(1, 3))
@@ -142,8 +144,12 @@ def average_grid_cells(array, block_size):
 geotiff_filename = '/nobackup/users/benas/Ship_Density/shipdensity_global.tif'
 
 # Lats and lons at four corners of region: ul, ur, lr, ll
-lats = [-10, -10, -35, -35]
-lons = [-10, 20, 20, -10]
+toplat = -10; bottomlat = -35
+leftlon = -10; rightlon = 20 
+
+lats = [toplat, toplat, bottomlat, bottomlat]
+lons = [leftlon, rightlon, rightlon, leftlon]
+del toplat, bottomlat, leftlon, rightlon
 
 rows = []; cols = []
 for i in range(len(lats)):
@@ -235,7 +241,7 @@ dates = [datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d')
          for year in range(start_year, end_year + 1) for month in range(1, 13)]
 
 # =============================================================================
-# Read some CLAAS data once: lat, lon and VZA
+# Read some CLAAS data once: lat, lon and VZA, land-sea mask
 # =============================================================================
 
 # Read full CLAAS-3 lat and lon arrays, needed to find b.box indices
@@ -244,11 +250,15 @@ claas3_l3_aux_data_file = '/data/windows/m/benas/Documents/CMSAF/CLAAS-3/' +\
 f = h5py.File(claas3_l3_aux_data_file, 'r')
 latData = f['lat'][:]
 lonData = f['lon'][:]
+landseamask = f['lsm'][:][:]
 f.close()
 lonData, latData = np.meshgrid(lonData, latData)
+lsm = landseamask == 2
 
 istart, iend, jstart, jend = ctf.find_bbox_indices(bounding_box, latData,
                                                    lonData)
+
+lsm = lsm[istart:iend:stride, jstart:jend:stride]
 
 del latData, lonData 
 
@@ -312,6 +322,9 @@ for var in var_list:
     var_data_mean = np.nanmean(var_data_stack, axis = 2)
     var_data_nmonths = (100 * (np.nansum(var_data_stack, axis = 2) / 
                                var_data_mean) / var_data_stack.shape[2])
+    
+    # Keep only sea areas
+    var_data_mean = np.where(lsm, var_data_mean, np.nan)
 
 # =============================================================================
 # Create some test maps
@@ -321,10 +334,10 @@ for var in var_list:
 lat_reduced = np.flipud(lat_reduced)
 flag_reduced = np.flipud(flag_reduced)
 
-outfile = './CDNC_average_all.png'
-create_map(lat_claas, lon_claas, var_data_mean, np.min(var_data_mean), 
-           np.max(var_data_mean), 'CDNC average', 'cm-3', 'viridis', 'neither', 
-            outfile, saveplot = False)
+outfile = './CDNC_average_all_noland.png'
+create_map(lat_claas, lon_claas, var_data_mean, np.nanmin(var_data_mean), 
+           np.nanmax(var_data_mean), 'CDNC average', 'cm-3', 'viridis', 'neither', 
+            outfile, saveplot = True)
 
 
 outfile = './Ship_flag.png'
