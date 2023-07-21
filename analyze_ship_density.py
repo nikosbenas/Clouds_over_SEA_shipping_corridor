@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+This program creates a binary mask of shipping corridors based on ship density
+data from the World Bank:
+datacatalog.worldbank.org/search/dataset/0037580/Global-Shipping-Traffic-Density
+
+The data (originally at 0.005 deg. resolution) are first aggregated to a 
+resolution coarser than CLAAS in order to avoid noisy pixels in the resulting
+flag. Then the resolution is increased to the CLAAS level 3 0.05 degrees.
+
 Created on Fri Jun 16 10:08:25 2023
 
 @author: benas
@@ -204,21 +212,11 @@ flag_reduced = np.kron(flag_from_mean_plus_1s, np.ones(repeat_factor))
 
 del new_shape, repeat_factor, data_for_flag
 
-outfile = 'Figures/Flag_from_mean_plus_1sigma_0.25deg.png'
-create_map(lat_for_flag, lon_for_flag, flag_from_mean_plus_1s, 0, 1, 
-            'Ship density flag from mean + 1 std', '-', 'Reds', 'neither', 
-            outfile, saveplot = True)
-
-
 # =============================================================================
 # Create some test maps
 # =============================================================================
 
-# Flip ship data and flag upside down to match with CLAAS conventions
-# lat_reduced = np.flipud(lat_reduced)
-# flag_reduced = np.flipud(flag_reduced)
-
-
-# outfile = './Ship_flag.png'
-# create_map(lat_claas, lon_claas, flag_reduced, 0, 1, 'Ship density flag', '-', 
-#            'Reds', 'neither', outfile, saveplot = True)
+outfile = 'Figures/Flags_shipping_corridor_5.png'
+create_map(lat_reduced, lon_reduced, flag_reduced, 0, 1, 
+            'Ship density flag from mean + 1 std', '-', 'Reds', 'neither', 
+            outfile, saveplot = False)
