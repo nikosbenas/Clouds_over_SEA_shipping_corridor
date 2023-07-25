@@ -8,24 +8,25 @@ Created on Fri Jul 21 07:16:13 2023
 from datetime import datetime
 import h5py
 import numpy as np
-import claas_trends_functions as ctf
-import claas3_dictionaries as cdict
 from netCDF4 import Dataset
 import multiprocessing
 import time
 import sys
 sys.path.append('/usr/people/benas/Documents/CMSAF/python_modules/')
 from modis_python_functions import map_l3_var as create_map
+sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
+import claas_trends_functions as ctf
+import claas3_dictionaries as cdict
 import copy
 import matplotlib.pyplot as plt
 import geopy.distance as gd
 
 
 # Define variables to read
-var_list = ['cre_liq']
+var_list = ['cdnc_liq']
 
 # Define Shipping Corridor
-sc = '5'
+sc = '1'
 
 
 # Lats and lons at four corners of region: ul, ur, lr, ll
@@ -176,109 +177,88 @@ first_occurrences = np.argmax(flag_sc == 1, axis=1)
 last_occurrences = np.argmax((flag_sc == 1)[:, ::-1], axis=1)
 
 # Adjust the indices of the last occurrence to account for reversing
-last_occurrences = flag_sc.shape[1] - 1 - last_occurrences
+last_occurrences = flag_sc.shape[1] - 1 - last_occurrences  
 
+# =============================================================================
+# Analyze all pixels around center of shipping corridor
+# =============================================================================
 
-# Calculate averages west and east of shipping corridor
-var_avg_west = []; var_std_west = []; var_cnt_west = []; dist_avg_west = []
-var_avg_east = []; var_std_east = []; var_cnt_east = []; dist_avg_east = []
+# List containg all values around center of corridor
+var_pxl_all = []; lat_pxl_all = []; lon_pxl_all = []
 
-for d in range(1, 31):
+halfwidth = 50
+
+for i in range(300):#len(first_occurrences)):
     
-    print(d)
-    
-    data_west = []; dist_west = []
-    data_east = []; dist_east = []
-    
-    for i in range(len(first_occurrences)):
+    if first_occurrences[i] != 0:
         
-        col_w = first_occurrences[i] - d
-        col_e = last_occurrences[i] + d
-        
-        # Column and point at middle of shipping corridor
+        # Column at middle of shipping corridor
         d_col = int((last_occurrences[i] + first_occurrences[i])/2)
-        p1 = [lat_claas[i, d_col], lon_claas[i, d_col]]
         
-        if col_w >  0:
-            
-            data_west.append(var_data_mean[i, col_w])
-            
-            # Find distance of west point with middle of ship corridor in m
-            pw = [lat_claas[i, col_w], lon_claas[i, col_w]]
-            dist_west.append(gd.geodesic(p1, pw).m)
-            
-                             
-        if col_e < var_data_mean.shape[1]:
-            
-            data_east.append(var_data_mean[i, col_e])
-            
-            # Find distance of east point with middle of ship corridor in m
-            pe = [lat_claas[i, col_e], lon_claas[i, col_e]]
-            dist_east.append(gd.geodesic(p1, pe).m)
-                             
-    var_avg_west.append(np.nanmean(data_west))
-    var_std_west.append(np.nanstd(data_west))
-    var_cnt_west.append(len(data_west))
-    dist_avg_west.append(np.nanmean(dist_west))
-    
-    var_avg_east.append(np.nanmean(data_east))
-    var_std_east.append(np.nanstd(data_east))
-    var_cnt_east.append(len(data_east))
-    dist_avg_east.append(np.nanmean(dist_east))
-
-    
-# Combine averages in an east-to-west row:
-sc_widths = (last_occurrences - first_occurrences).astype(float)
-sc_widths[sc_widths == float(flag_sc.shape[1] - 1)] = np.nan
-sc_width = round(np.nanmean(sc_widths))
-    
-inside_corr = [var_data_mean_sc_avg] * sc_width
-for i in range(len(inside_corr)):
-    if i != (len(inside_corr) // 2):
-        inside_corr[i] = float('nan')
+        # Save all points around the center of SC
+        var_pxl_all.append(var_data_mean[i][d_col-halfwidth : d_col+halfwidth])
+        lat_pxl_all.append(lat_claas[i][d_col-halfwidth : d_col+halfwidth])
+        lon_pxl_all.append(lon_claas[i][d_col-halfwidth : d_col+halfwidth])
         
-var_avg_all = var_avg_west[::-1] +  inside_corr + var_avg_east
+var_pxl_all = np.array(var_pxl_all)
+lat_pxl_all = np.array(lat_pxl_all)
+lon_pxl_all = np.array(lon_pxl_all)
 
-# Average plus 1 sigma
-var_avg_plus_std_west = list(np.array(var_avg_west) + np.array(var_std_west))
-var_avg_plus_std_east = list(np.array(var_avg_east) + np.array(var_std_east))
-var_avg_plus_std_sc = var_data_mean_sc_avg + var_data_mean_sc_std
+distances = np.full_like(lat_pxl_all, np.nan)
+center = int(var_pxl_all.shape[1]/2)
 
-var_avg_plus_std_all = var_avg_plus_std_west[::-1] + [var_avg_plus_std_sc] *\
-    sc_width + var_avg_plus_std_east
+# Calculate (horizontal) distances from center of corridor (in km)
+for i in range(len(lat_pxl_all)):
     
-# Average minus 1 sigma
-var_avg_minus_std_west = list(np.array(var_avg_west) - np.array(var_std_west))
-var_avg_minus_std_east = list(np.array(var_avg_east) - np.array(var_std_east))
-var_avg_minus_std_sc = var_data_mean_sc_avg - var_data_mean_sc_std
-
-var_avg_minus_std_all = var_avg_minus_std_west[::-1] +\
-    [var_avg_minus_std_sc] * sc_width + var_avg_minus_std_east    
+    # Center point coordinates
+    pc =  [lat_pxl_all[i, center], lon_pxl_all[i, center]]
     
+    for j in range(lat_pxl_all.shape[1]):
+        
+        pj = [lat_pxl_all[i, j], lon_pxl_all[i, j]]
+        
+        distances[i, j] = gd.geodesic(pc, pj).km
+        
+        if j < center:
+            
+            distances[i, j] = - distances[i, j]
+        
+# Average distance along the west-east axis
+dist_mean = np.mean(distances, axis = 0)
+var_pxl_all_mean = np.nanmean(var_pxl_all, axis = 0)
 
-# Plot East-to-West line averages
+# var_pxl_all_mean_sc = np.full_like(var_pxl_all_mean, np.nan)
+# var_pxl_all_mean_sc[center - sc_width:center + sc_width] =\
+#     var_pxl_all_mean[center - sc_width:center + sc_width]
 
-# x-axis centered on corridor
+# =============================================================================
+# # Select N initial and final points in the array and interpolate the rest
+# =============================================================================
+var_pxl_all_mean_n = copy.deepcopy(var_pxl_all_mean)
+N = 20
+var_pxl_all_mean_n[N:-N] = np.nan
 
-diff = (dist_avg_east[0] + dist_avg_west[0]) / sc_width
-dist_in_corr = np.arange(-dist_avg_west[0], dist_avg_east[0], diff)
+# Indices of non-nan elements
+non_nan_indices = np.where(~np.isnan(var_pxl_all_mean_n))[0]
 
-x = [-i for i in dist_avg_west[::-1]] + list(dist_in_corr) + dist_avg_east
-# Convert to km
-x = [i / 1000 for i in x]
+# Interpolate using non-nan elements
+interpolation_points = non_nan_indices
+var_pxl_all_mean_interp = np.interp(np.arange(len(var_pxl_all_mean_n)), 
+                                    interpolation_points, 
+                                    var_pxl_all_mean_n[non_nan_indices])
+
 
 fig = plt.figure()
-
-plt.plot(x, var_avg_all, 'o') 
-# plt.plot(x, var_avg_plus_std_all)
-# plt.plot(x, var_avg_minus_std_all)
-
-plt.title(var + ' around shipping corridor ' + sc)
-plt.xlabel('[km] (West to East, centered on corridor)')
+plt.plot(dist_mean, var_pxl_all_mean, label = 'Original values')
+plt.plot(dist_mean, var_pxl_all_mean_interp, linestyle = ':', color = 'k', 
+         label = 'Interpolated values')
+plt.axvline(x = dist_mean[center], linestyle = ':', color='grey')
 plt.ylabel('[' + cdict.varUnits[var] + ']')
-
-fig.savefig('Figures/' + var.upper() + '_around_sc_' + sc + '.png', 
-            dpi = 300, bbox_inches = 'tight')
+plt.xlabel('Distance from corridor center, W to E [km]')
+plt.title(var.upper() + ' across shipping corridor #' + sc)
+plt.legend()
+outfile = 'Figures/' + var.upper() + '_across_sc_' + str(sc)
+fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
 
 # =============================================================================
 # Create some test maps
