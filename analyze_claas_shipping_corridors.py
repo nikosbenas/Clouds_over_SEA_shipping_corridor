@@ -26,12 +26,14 @@ import geopy.distance as gd
 var_list = ['cdnc_liq']
 
 # Define Shipping Corridor
-sc = '1'
+sc = '2'
 
 
 # Lats and lons at four corners of region: ul, ur, lr, ll
-toplat = -10; bottomlat = -35
-leftlon = -10; rightlon = 20 
+# toplat = -10; bottomlat = -35
+# leftlon = -10; rightlon = 20 
+toplat = -10; bottomlat = -20
+leftlon = -10; rightlon = 10 
 
 lats = [toplat, toplat, bottomlat, bottomlat]
 lons = [leftlon, rightlon, rightlon, leftlon]
@@ -43,6 +45,8 @@ del toplat, bottomlat, leftlon, rightlon
 
 # Define bounding box: ul lon, lr lat,lr lon, ul lat
 bounding_box = [lons[0], lats[2], lons[2], lats[0]]
+del lats, lons
+
 # Definitions for reading data:
 stride = 1
 read_mode = 'stride'
@@ -78,7 +82,7 @@ lsm = lsm[istart:iend:stride, jstart:jend:stride]
 
 lsm = np.flipud(lsm)
 
-del latData, lonData 
+del latData, lonData, landseamask, bounding_box 
 
 # Read VZA to use as data threshold
 f = h5py.File(claas3_l3_aux_data_file, 'r')
@@ -86,6 +90,7 @@ f = h5py.File(claas3_l3_aux_data_file, 'r')
 vzaData = f['satzen'][1, istart:iend:stride, jstart:jend:stride] 
 f.close()
 vzaMask = vzaData > 70
+del vzaData, claas3_l3_aux_data_file
 
 for var in var_list:
     
@@ -128,7 +133,7 @@ for var in var_list:
     # Close the pool when you're done
     pool.close()
         
-    del args_list
+    del args_list 
         
     # Convert the results to a numpy array
     var_data_stack = np.dstack(var_data_stack)
@@ -196,9 +201,11 @@ for i in range(300):#len(first_occurrences)):
         d_col = int((last_occurrences[i] + first_occurrences[i])/2)
         
         # Save all points around the center of SC
-        var_pxl_all.append(var_data_mean[i][d_col-halfwidth : d_col+halfwidth])
-        lat_pxl_all.append(lat_claas[i][d_col-halfwidth : d_col+halfwidth])
-        lon_pxl_all.append(lon_claas[i][d_col-halfwidth : d_col+halfwidth])
+        if d_col - halfwidth > 0: 
+            
+            var_pxl_all.append(var_data_mean[i][d_col-halfwidth : d_col+halfwidth])
+            lat_pxl_all.append(lat_claas[i][d_col-halfwidth : d_col+halfwidth])
+            lon_pxl_all.append(lon_claas[i][d_col-halfwidth : d_col+halfwidth])
         
 var_pxl_all = np.array(var_pxl_all)
 lat_pxl_all = np.array(lat_pxl_all)
@@ -235,7 +242,7 @@ var_pxl_all_mean = np.nanmean(var_pxl_all, axis = 0)
 # # Select N initial and final points in the array and interpolate the rest
 # =============================================================================
 var_pxl_all_mean_n = copy.deepcopy(var_pxl_all_mean)
-N = 20
+N = 10
 var_pxl_all_mean_n[N:-N] = np.nan
 
 # Indices of non-nan elements
@@ -258,6 +265,17 @@ plt.xlabel('Distance from corridor center, W to E [km]')
 plt.title(var.upper() + ' across shipping corridor #' + sc)
 plt.legend()
 outfile = 'Figures/' + var.upper() + '_across_sc_' + str(sc)
+fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+
+diff = var_pxl_all_mean - var_pxl_all_mean_interp
+
+fig = plt.figure()
+plt.plot(dist_mean, diff)
+plt.axvline(x = dist_mean[center], linestyle = ':', color='grey')
+plt.ylabel('[' + cdict.varUnits[var] + ']')
+plt.xlabel('Distance from corridor center, W to E [km]')
+plt.title(var.upper() + ' change due to shipping corridor #' + sc)
+outfile = 'Figures/' + var.upper() + '_change_due_to_sc_' + str(sc)
 fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
 
 # =============================================================================
