@@ -144,8 +144,10 @@ def average_grid_cells(array, block_size):
 geotiff_filename = '/nobackup/users/benas/Ship_Density/shipdensity_global.tif'
 
 # Lats and lons at four corners of region: ul, ur, lr, ll
-toplat = -10; bottomlat = -35
-leftlon = -10; rightlon = 20 
+# toplat = -10; bottomlat = -35
+# leftlon = -10; rightlon = 20 
+toplat = -10; bottomlat = -20
+leftlon = -10; rightlon = 10 
 
 lats = [toplat, toplat, bottomlat, bottomlat]
 lons = [leftlon, rightlon, rightlon, leftlon]
@@ -216,7 +218,14 @@ del new_shape, repeat_factor, data_for_flag
 # Create some test maps
 # =============================================================================
 
-outfile = 'Figures/Flags_shipping_corridor_5.png'
+outfile = 'Figures/Flags_shipping_corridor.png'
 create_map(lat_reduced, lon_reduced, flag_reduced, 0, 1, 
             'Ship density flag from mean + 1 std', '-', 'Reds', 'neither', 
             outfile, saveplot = False)
+
+# =============================================================================
+# Save flag array to npy file
+# =============================================================================
+
+outfile = 'flags_shipping_corridor_2.npy'
+np.save(outfile, flag_reduced)
