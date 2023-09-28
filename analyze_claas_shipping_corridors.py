@@ -170,7 +170,7 @@ var_data_mean_sc_std = np.nanstd(var_data_mean_sc)
 var_data_mean_sc_count = np.nansum(var_data_mean_sc) / var_data_mean_sc_avg
 
 # =============================================================================
-# Calculate variable average and std at shipping corridor surroundings
+# Find shipping corridor edges and center per latitudinal line
 # =============================================================================  
 
 # Find first and last occurrences of ones (shipping corridor edges) in each 
@@ -183,6 +183,38 @@ last_occurrences = np.argmax((flag_sc == 1)[:, ::-1], axis=1)
 
 # Adjust the indices of the last occurrence to account for reversing
 last_occurrences = flag_sc.shape[1] - 1 - last_occurrences  
+
+# Define shipping corridor center array index, lat and lon
+sc_centind = np.empty(flag_sc.shape[0])
+sc_centlat = np.empty(flag_sc.shape[0])
+sc_centlon = np.empty(flag_sc.shape[0])
+
+for i in range(flag_sc.shape[0]):
+    
+    index = int((last_occurrences[i] + first_occurrences[i])/2)
+    
+    sc_centind[i] = index
+    
+    sc_centlat[i] = lat_claas[i][index]
+    sc_centlon[i] = lon_claas[i][index]
+    
+# Calculate the angle between shipping corridor and south-to-north direction
+
+# Perform linear regression to find the line equation
+coefficients = np.polyfit(sc_centlon, sc_centlat, 1)
+slope = coefficients[0]
+
+# Calculate the angle between the line and south-to-north (meridian) direction
+angle_radians = np.arctan(slope)
+angle_degrees = np.degrees(angle_radians)
+
+# Ensure the angle is between 0 and 180 degrees
+if angle_degrees < 0:
+    angle_degrees += 180
+    
+# This is the angle starting from the x-axis (east). Starting from North:
+angle_degrees = angle_degrees - 90
+    
 
 # =============================================================================
 # Analyze all pixels around center of shipping corridor
