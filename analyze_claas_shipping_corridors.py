@@ -133,7 +133,7 @@ for var in var_list:
     # Close the pool when you're done
     pool.close()
         
-    del args_list 
+    del args_list, pool 
         
     # Convert the results to a numpy array
     var_data_stack = np.dstack(var_data_stack)
@@ -197,8 +197,12 @@ for i in range(flag_sc.shape[0]):
     
     sc_centlat[i] = lat_claas[i][index]
     sc_centlon[i] = lon_claas[i][index]
-    
+  
+del index  
+  
+# =============================================================================
 # Calculate the angle between shipping corridor and south-to-north direction
+# =============================================================================
 
 # Perform linear regression to find the line equation
 coefficients = np.polyfit(sc_centlon, sc_centlat, 1)
@@ -214,7 +218,54 @@ if angle_degrees < 0:
     
 # This is the angle starting from the x-axis (east). Starting from North:
 angle_degrees = angle_degrees - 90
+angle_radians = np.radians(angle_degrees)   
+
+# =============================================================================
+# For each pixel at corridor center, find pixels along the line perpendicular 
+# to the corridor 
+# =============================================================================
+
+all_distances = []
+all_lat_indices = []
+all_lon_indices = []
+
+for c in range(len(sc_centlat)):
     
+    # Corridor center pixel coordinates
+    pc = [sc_centlat[c], sc_centlon[c]]
+    
+    # Line intercept
+    b = sc_centlat[c] - angle_radians * sc_centlon[c]
+    
+    # Array indices of pixels falling within (half-pixel) the perpendicular 
+    lat_indices = []
+    lon_indices = []
+    # Distances of the "line pixels" from the corridor center 
+    distances = []
+    
+    for i in range(lat_claas.shape[0]):
+        
+        expected_lats = angle_radians * lon_claas[i, :] + b
+                        
+        lon_ind = np.argmin(abs(lat_claas[i, :] - expected_lats))
+        
+        if (lon_ind > 0) and (lon_ind < (lat_claas.shape[1] - 1)):
+            
+            lat_indices.append(i)
+            lon_indices.append(lon_ind)
+            
+            pij = [lat_claas[i, lon_ind], lon_claas[i, lon_ind]]
+            distances.append(gd.geodesic(pc, pij).km)
+            
+        else:
+            
+            continue
+         
+    all_distances.append(distances)
+    all_lat_indices.append(lat_indices)
+    all_lon_indices.append(lon_indices)
+    
+    print('checked line ' + str(c))        
 
 # =============================================================================
 # Analyze all pixels around center of shipping corridor
@@ -225,7 +276,7 @@ var_pxl_all = []; lat_pxl_all = []; lon_pxl_all = []
 
 halfwidth = 50
 
-for i in range(300):#len(first_occurrences)):
+for i in range(len(first_occurrences)):
     
     if first_occurrences[i] != 0:
         
