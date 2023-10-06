@@ -282,6 +282,41 @@ if __name__ == "__main__":
 
 
 # =============================================================================
+# Center all perpendicular lines to the corridor center (zero distance) 
+# =============================================================================
+
+# Find the maximum length of all lists
+max_length = max(len(lst) for lst in all_distances)
+
+# Initialize lists to store centered data
+centered_dists = []
+zero_indices = []
+zero_indices_reverse = []
+
+# Center each list by adding NaN values
+for lst in all_distances:
+    
+    zero_indices.append(lst.index(0))
+    zero_indices_reverse.append(len(lst) - lst.index(0))
+    
+max_zero_ind = max(zero_indices)
+max_zero_ind_rev = max(zero_indices_reverse)
+    
+for lst in all_distances:
+    
+    zero_ind = lst.index(0)
+    zero_ind_rev = len(lst) - lst.index(0)
+    
+    pad_left = max_zero_ind - zero_ind
+    pad_right = max_zero_ind_rev - zero_ind_rev
+    
+    centered_lst = np.concatenate([np.nan*np.ones(pad_left), lst, 
+                                   np.nan*np.ones(pad_right)])
+    centered_dists.append(centered_lst)
+    
+avg_distances = np.nanmean(centered_dists, axis=0)
+    
+# =============================================================================
 # Analyze all pixels around center of shipping corridor
 # =============================================================================
 
