@@ -22,6 +22,41 @@ import matplotlib.pyplot as plt
 import geopy.distance as gd
 
 
+def process_line(c):
+   
+    # Corridor center pixel coordinates
+    pc = [sc_centlat[c], sc_centlon[c]]
+    
+    # Line intercept
+    b = sc_centlat[c] - angle_radians * sc_centlon[c]
+    
+    # Array indices of pixels falling within (half-pixel) the perpendicular 
+    lat_indices = []
+    lon_indices = []
+    # Distances of the "line pixels" from the corridor center 
+    distances = []
+    
+    for i in range(lat_claas.shape[0]):
+        
+        expected_lats = angle_radians * lon_claas[i, :] + b
+                        
+        lon_ind = np.argmin(abs(lat_claas[i, :] - expected_lats))
+        
+        if (lon_ind > 0) and (lon_ind < (lat_claas.shape[1] - 1)):
+            
+            lat_indices.append(i)
+            lon_indices.append(lon_ind)
+            
+            pij = [lat_claas[i, lon_ind], lon_claas[i, lon_ind]]
+            distances.append(gd.geodesic(pc, pij).km)
+            
+        else:
+            
+            continue
+
+    return distances, lat_indices, lon_indices
+
+
 # Define variables to read
 var_list = ['cdnc_liq']
 
@@ -225,47 +260,26 @@ angle_radians = np.radians(angle_degrees)
 # to the corridor 
 # =============================================================================
 
-all_distances = []
-all_lat_indices = []
-all_lon_indices = []
+num_processes = 10
 
-for c in range(len(sc_centlat)):
+if __name__ == "__main__":
     
-    # Corridor center pixel coordinates
-    pc = [sc_centlat[c], sc_centlon[c]]
-    
-    # Line intercept
-    b = sc_centlat[c] - angle_radians * sc_centlon[c]
-    
-    # Array indices of pixels falling within (half-pixel) the perpendicular 
-    lat_indices = []
-    lon_indices = []
-    # Distances of the "line pixels" from the corridor center 
-    distances = []
-    
-    for i in range(lat_claas.shape[0]):
+    all_distances = []
+    all_lat_indices = []
+    all_lon_indices = []
+
+    # Create a multiprocessing pool with the specified number of processes
+    with multiprocessing.Pool(processes=num_processes) as pool:
         
-        expected_lats = angle_radians * lon_claas[i, :] + b
-                        
-        lon_ind = np.argmin(abs(lat_claas[i, :] - expected_lats))
+        results = pool.map(process_line, range(len(sc_centlat)))
+
+    # Unpack and collect the results
+    for c, (distances, lat_indices, lon_indices) in enumerate(results):
         
-        if (lon_ind > 0) and (lon_ind < (lat_claas.shape[1] - 1)):
-            
-            lat_indices.append(i)
-            lon_indices.append(lon_ind)
-            
-            pij = [lat_claas[i, lon_ind], lon_claas[i, lon_ind]]
-            distances.append(gd.geodesic(pc, pij).km)
-            
-        else:
-            
-            continue
-         
-    all_distances.append(distances)
-    all_lat_indices.append(lat_indices)
-    all_lon_indices.append(lon_indices)
-    
-    print('checked line ' + str(c))        
+        all_distances.append(distances)
+        all_lat_indices.append(lat_indices)
+        all_lon_indices.append(lon_indices)        
+
 
 # =============================================================================
 # Analyze all pixels around center of shipping corridor
