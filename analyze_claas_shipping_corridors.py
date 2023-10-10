@@ -22,7 +22,82 @@ import matplotlib.pyplot as plt
 import geopy.distance as gd
 
 
-def process_line(c):
+def find_shipping_corridor_center_coordinates(flag_sc):
+    
+    """
+    This function returns the shipping corridor center latitude and longitude 
+    per latitudinal line.
+    
+    Input: 2D binary array of shipping corridor flag
+    Output: 1D arrays of SC center latitudes and longitudes
+    """
+    
+    # Find first and last occurrences of ones (shipping corridor edges) in each 
+    # line
+    first_occurrences = np.argmax(flag_sc == 1, axis=1)
+
+    # Find the last occurrence of value 1 in each row (by reversing the array 
+    # along columns)
+    last_occurrences = np.argmax((flag_sc == 1)[:, ::-1], axis=1)
+
+    # Adjust the indices of the last occurrence to account for reversing
+    last_occurrences = flag_sc.shape[1] - 1 - last_occurrences  
+
+    # Define shipping corridor center lat and lon
+    sc_centlat = np.empty(flag_sc.shape[0])
+    sc_centlon = np.empty(flag_sc.shape[0])
+
+    for i in range(flag_sc.shape[0]):
+        
+        index = int((last_occurrences[i] + first_occurrences[i])/2)
+            
+        sc_centlat[i] = lat_claas[i][index]
+        sc_centlon[i] = lon_claas[i][index]
+      
+    del index  
+    
+    return sc_centlat, sc_centlon
+
+
+def find_angle_bewteen_shipping_corrridor_and_north(sc_centlat, sc_centlon):
+    
+    """
+    This function returns the angle between the shipping corridor (defined by 
+    1D arrays of its center latitudes and longitudes) and the North direction.
+    
+    Input: 1D arrays of SC center latitudes and longitudes
+    Output: angle (in radians)
+    """
+    
+    # Perform linear regression to find the line equation
+    coefficients = np.polyfit(sc_centlon, sc_centlat, 1)
+    slope = coefficients[0]
+
+    # Calculate the angle between the line and south-to-north (meridian) direction
+    angle_radians = np.arctan(slope)
+    angle_degrees = np.degrees(angle_radians)
+
+    # Ensure the angle is between 0 and 180 degrees
+    if angle_degrees < 0:
+        angle_degrees += 180
+        
+    # This is the angle starting from the x-axis (east). Starting from North:
+    angle_degrees = angle_degrees - 90
+    
+    return np.radians(angle_degrees)   
+
+
+def find_line_perpendicular_to_corridor(c):
+    
+    """
+    This function returns information on the grid cells that lie along the line
+    perpendicular to the shipping corridor center (given by latitudinal line
+    number c)
+    
+    Input: index of latitudinal line, based on SC flag 2D array.
+    Output: 1D lists of distances (in km), lat indices and lon indices of the
+            grid cells lying along the perpendicular line
+    """
    
     # Corridor center pixel coordinates
     pc = [sc_centlat[c], sc_centlon[c]]
@@ -55,6 +130,66 @@ def process_line(c):
             continue
 
     return distances, lat_indices, lon_indices
+
+
+def center_shipping_corridor_perpendicular_lines(all_lat_indices, 
+                                                 all_lon_indices, 
+                                                 all_distances):
+    
+    """
+    This function takes lists of 1D arrays of lat/lon indices and distances 
+    (in km) from shipping corridor centers and centers them so that they are 
+    aligned to the shipping corridor center.
+    
+    Input: lists of 1D arrays of lat/lon indices and distances from shipping 
+           corridor center.
+    Output: 2D arrays of the same (input) variables aligned and centered along 
+            the shipping corridor center. 
+    """
+
+    # Initialize lists to store centered data
+    zero_indices = []
+    zero_indices_reverse = []
+    centered_dists = []
+    centered_lat_inds = []
+    centered_lon_inds = []
+
+    # Center each list by adding NaN values
+    for i in range(len(all_distances)):
+        
+        zero_indices.append(all_distances[i].index(0))
+        zero_indices_reverse.append(len(all_distances[i]) -
+                                    all_distances[i].index(0))
+        
+    max_zero_ind = max(zero_indices)
+    max_zero_ind_rev = max(zero_indices_reverse)
+        
+    for i in range(len(all_distances)):
+        
+        zero_ind = all_distances[i].index(0)
+        zero_ind_rev = len(all_distances[i]) - all_distances[i].index(0)
+        
+        pad_left = max_zero_ind - zero_ind
+        pad_right = max_zero_ind_rev - zero_ind_rev
+        
+        centered_dist = np.concatenate([np.nan*np.ones(pad_left), all_distances[i], 
+                                       np.nan*np.ones(pad_right)])
+        centered_dists.append(centered_dist)
+        
+        centered_lat_ind = np.concatenate(
+            [np.nan*np.ones(pad_left), all_lat_indices[i], 
+             np.nan*np.ones(pad_right)])
+        centered_lat_inds.append(centered_lat_ind)
+        
+        centered_lon_ind = np.concatenate(
+            [np.nan*np.ones(pad_left), all_lon_indices[i], 
+             np.nan*np.ones(pad_right)])
+        centered_lon_inds.append(centered_lon_ind)
+        
+        
+    return (np.vstack(centered_lat_inds), np.vstack(centered_lon_inds), 
+            np.vstack(centered_dists))
+
 
 
 # Define variables to read
@@ -188,72 +323,15 @@ for var in var_list:
     
     
 # =============================================================================
-# Load shipping corridor data
+# Load shipping corridor data and find angle with North
 # =============================================================================    
 
 flag_sc = np.load('flags_shipping_corridor_' + sc + '.npy')
 
-# =============================================================================
-# Calculate variable average and std at shipping corridor
-# =============================================================================    
+sc_centlat, sc_centlon = find_shipping_corridor_center_coordinates(flag_sc)
 
-var_data_mean_sc = copy.deepcopy(var_data_mean)
-var_data_mean_sc[flag_sc == 0] = np.nan
-
-var_data_mean_sc_avg = np.nanmean(var_data_mean_sc)
-var_data_mean_sc_std = np.nanstd(var_data_mean_sc)
-var_data_mean_sc_count = np.nansum(var_data_mean_sc) / var_data_mean_sc_avg
-
-# =============================================================================
-# Find shipping corridor edges and center per latitudinal line
-# =============================================================================  
-
-# Find first and last occurrences of ones (shipping corridor edges) in each 
-# line
-first_occurrences = np.argmax(flag_sc == 1, axis=1)
-
-# Find the last occurrence of value 1 in each row (by reversing the array 
-# along columns)
-last_occurrences = np.argmax((flag_sc == 1)[:, ::-1], axis=1)
-
-# Adjust the indices of the last occurrence to account for reversing
-last_occurrences = flag_sc.shape[1] - 1 - last_occurrences  
-
-# Define shipping corridor center array index, lat and lon
-sc_centind = np.empty(flag_sc.shape[0])
-sc_centlat = np.empty(flag_sc.shape[0])
-sc_centlon = np.empty(flag_sc.shape[0])
-
-for i in range(flag_sc.shape[0]):
-    
-    index = int((last_occurrences[i] + first_occurrences[i])/2)
-    
-    sc_centind[i] = index
-    
-    sc_centlat[i] = lat_claas[i][index]
-    sc_centlon[i] = lon_claas[i][index]
-  
-del index  
-  
-# =============================================================================
-# Calculate the angle between shipping corridor and south-to-north direction
-# =============================================================================
-
-# Perform linear regression to find the line equation
-coefficients = np.polyfit(sc_centlon, sc_centlat, 1)
-slope = coefficients[0]
-
-# Calculate the angle between the line and south-to-north (meridian) direction
-angle_radians = np.arctan(slope)
-angle_degrees = np.degrees(angle_radians)
-
-# Ensure the angle is between 0 and 180 degrees
-if angle_degrees < 0:
-    angle_degrees += 180
-    
-# This is the angle starting from the x-axis (east). Starting from North:
-angle_degrees = angle_degrees - 90
-angle_radians = np.radians(angle_degrees)   
+angle_radians = find_angle_bewteen_shipping_corrridor_and_north(sc_centlat, 
+                                                                sc_centlon)
 
 # =============================================================================
 # For each pixel at corridor center, find pixels along the line perpendicular 
@@ -271,7 +349,8 @@ if __name__ == "__main__":
     # Create a multiprocessing pool with the specified number of processes
     with multiprocessing.Pool(processes=num_processes) as pool:
         
-        results = pool.map(process_line, range(len(sc_centlat)))
+        results = pool.map(find_line_perpendicular_to_corridor, 
+                           range(len(sc_centlat)))
 
     # Unpack and collect the results
     for c, (distances, lat_indices, lon_indices) in enumerate(results):
@@ -285,35 +364,11 @@ if __name__ == "__main__":
 # Center all perpendicular lines to the corridor center (zero distance) 
 # =============================================================================
 
-# Find the maximum length of all lists
-max_length = max(len(lst) for lst in all_distances)
-
-# Initialize lists to store centered data
-centered_dists = []
-zero_indices = []
-zero_indices_reverse = []
-
-# Center each list by adding NaN values
-for lst in all_distances:
-    
-    zero_indices.append(lst.index(0))
-    zero_indices_reverse.append(len(lst) - lst.index(0))
-    
-max_zero_ind = max(zero_indices)
-max_zero_ind_rev = max(zero_indices_reverse)
-    
-for lst in all_distances:
-    
-    zero_ind = lst.index(0)
-    zero_ind_rev = len(lst) - lst.index(0)
-    
-    pad_left = max_zero_ind - zero_ind
-    pad_right = max_zero_ind_rev - zero_ind_rev
-    
-    centered_lst = np.concatenate([np.nan*np.ones(pad_left), lst, 
-                                   np.nan*np.ones(pad_right)])
-    centered_dists.append(centered_lst)
-    
+centered_lat_inds, centered_lon_inds, centered_dists = \
+    center_shipping_corridor_perpendicular_lines(all_lat_indices, 
+                                                 all_lon_indices, 
+                                                 all_distances)
+ 
 avg_distances = np.nanmean(centered_dists, axis=0)
     
 # =============================================================================
@@ -321,50 +376,50 @@ avg_distances = np.nanmean(centered_dists, axis=0)
 # =============================================================================
 
 # List containg all values around center of corridor
-var_pxl_all = []; lat_pxl_all = []; lon_pxl_all = []
+# var_pxl_all = []; lat_pxl_all = []; lon_pxl_all = []
 
-halfwidth = 50
+# halfwidth = 50
 
-for i in range(len(first_occurrences)):
+# for i in range(len(first_occurrences)):
     
-    if first_occurrences[i] != 0:
+#     if first_occurrences[i] != 0:
         
-        # Column at middle of shipping corridor
-        d_col = int((last_occurrences[i] + first_occurrences[i])/2)
+#         # Column at middle of shipping corridor
+#         d_col = int((last_occurrences[i] + first_occurrences[i])/2)
         
-        # Save all points around the center of SC
-        if d_col - halfwidth > 0: 
+#         # Save all points around the center of SC
+#         if d_col - halfwidth > 0: 
             
-            var_pxl_all.append(var_data_mean[i][d_col-halfwidth : d_col+halfwidth])
-            lat_pxl_all.append(lat_claas[i][d_col-halfwidth : d_col+halfwidth])
-            lon_pxl_all.append(lon_claas[i][d_col-halfwidth : d_col+halfwidth])
+#             var_pxl_all.append(var_data_mean[i][d_col-halfwidth : d_col+halfwidth])
+#             lat_pxl_all.append(lat_claas[i][d_col-halfwidth : d_col+halfwidth])
+#             lon_pxl_all.append(lon_claas[i][d_col-halfwidth : d_col+halfwidth])
         
-var_pxl_all = np.array(var_pxl_all)
-lat_pxl_all = np.array(lat_pxl_all)
-lon_pxl_all = np.array(lon_pxl_all)
+# var_pxl_all = np.array(var_pxl_all)
+# lat_pxl_all = np.array(lat_pxl_all)
+# lon_pxl_all = np.array(lon_pxl_all)
 
-distances = np.full_like(lat_pxl_all, np.nan)
-center = int(var_pxl_all.shape[1]/2)
+# distances = np.full_like(lat_pxl_all, np.nan)
+# center = int(var_pxl_all.shape[1]/2)
 
-# Calculate (horizontal) distances from center of corridor (in km)
-for i in range(len(lat_pxl_all)):
+# # Calculate (horizontal) distances from center of corridor (in km)
+# for i in range(len(lat_pxl_all)):
     
-    # Center point coordinates
-    pc =  [lat_pxl_all[i, center], lon_pxl_all[i, center]]
+#     # Center point coordinates
+#     pc =  [lat_pxl_all[i, center], lon_pxl_all[i, center]]
     
-    for j in range(lat_pxl_all.shape[1]):
+#     for j in range(lat_pxl_all.shape[1]):
         
-        pj = [lat_pxl_all[i, j], lon_pxl_all[i, j]]
+#         pj = [lat_pxl_all[i, j], lon_pxl_all[i, j]]
         
-        distances[i, j] = gd.geodesic(pc, pj).km
+#         distances[i, j] = gd.geodesic(pc, pj).km
         
-        if j < center:
+#         if j < center:
             
-            distances[i, j] = - distances[i, j]
+#             distances[i, j] = - distances[i, j]
         
-# Average distance along the west-east axis
-dist_mean = np.mean(distances, axis = 0)
-var_pxl_all_mean = np.nanmean(var_pxl_all, axis = 0)
+# # Average distance along the west-east axis
+# dist_mean = np.mean(distances, axis = 0)
+# var_pxl_all_mean = np.nanmean(var_pxl_all, axis = 0)
 
 # var_pxl_all_mean_sc = np.full_like(var_pxl_all_mean, np.nan)
 # var_pxl_all_mean_sc[center - sc_width:center + sc_width] =\
@@ -373,42 +428,42 @@ var_pxl_all_mean = np.nanmean(var_pxl_all, axis = 0)
 # =============================================================================
 # # Select N initial and final points in the array and interpolate the rest
 # =============================================================================
-var_pxl_all_mean_n = copy.deepcopy(var_pxl_all_mean)
-N = 10
-var_pxl_all_mean_n[N:-N] = np.nan
+# var_pxl_all_mean_n = copy.deepcopy(var_pxl_all_mean)
+# N = 10
+# var_pxl_all_mean_n[N:-N] = np.nan
 
-# Indices of non-nan elements
-non_nan_indices = np.where(~np.isnan(var_pxl_all_mean_n))[0]
+# # Indices of non-nan elements
+# non_nan_indices = np.where(~np.isnan(var_pxl_all_mean_n))[0]
 
-# Interpolate using non-nan elements
-interpolation_points = non_nan_indices
-var_pxl_all_mean_interp = np.interp(np.arange(len(var_pxl_all_mean_n)), 
-                                    interpolation_points, 
-                                    var_pxl_all_mean_n[non_nan_indices])
+# # Interpolate using non-nan elements
+# interpolation_points = non_nan_indices
+# var_pxl_all_mean_interp = np.interp(np.arange(len(var_pxl_all_mean_n)), 
+#                                     interpolation_points, 
+#                                     var_pxl_all_mean_n[non_nan_indices])
 
 
-fig = plt.figure()
-plt.plot(dist_mean, var_pxl_all_mean, label = 'Original values')
-plt.plot(dist_mean, var_pxl_all_mean_interp, linestyle = ':', color = 'k', 
-         label = 'Interpolated values')
-plt.axvline(x = dist_mean[center], linestyle = ':', color='grey')
-plt.ylabel('[' + cdict.varUnits[var] + ']')
-plt.xlabel('Distance from corridor center, W to E [km]')
-plt.title(var.upper() + ' across shipping corridor #' + sc)
-plt.legend()
-outfile = 'Figures/' + var.upper() + '_across_sc_' + str(sc)
-fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+# fig = plt.figure()
+# plt.plot(dist_mean, var_pxl_all_mean, label = 'Original values')
+# plt.plot(dist_mean, var_pxl_all_mean_interp, linestyle = ':', color = 'k', 
+#          label = 'Interpolated values')
+# plt.axvline(x = dist_mean[center], linestyle = ':', color='grey')
+# plt.ylabel('[' + cdict.varUnits[var] + ']')
+# plt.xlabel('Distance from corridor center, W to E [km]')
+# plt.title(var.upper() + ' across shipping corridor #' + sc)
+# plt.legend()
+# outfile = 'Figures/' + var.upper() + '_across_sc_' + str(sc)
+# fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
 
-diff = var_pxl_all_mean - var_pxl_all_mean_interp
+# diff = var_pxl_all_mean - var_pxl_all_mean_interp
 
-fig = plt.figure()
-plt.plot(dist_mean, diff)
-plt.axvline(x = dist_mean[center], linestyle = ':', color='grey')
-plt.ylabel('[' + cdict.varUnits[var] + ']')
-plt.xlabel('Distance from corridor center, W to E [km]')
-plt.title(var.upper() + ' change due to shipping corridor #' + sc)
-outfile = 'Figures/' + var.upper() + '_change_due_to_sc_' + str(sc)
-fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+# fig = plt.figure()
+# plt.plot(dist_mean, diff)
+# plt.axvline(x = dist_mean[center], linestyle = ':', color='grey')
+# plt.ylabel('[' + cdict.varUnits[var] + ']')
+# plt.xlabel('Distance from corridor center, W to E [km]')
+# plt.title(var.upper() + ' change due to shipping corridor #' + sc)
+# outfile = 'Figures/' + var.upper() + '_change_due_to_sc_' + str(sc)
+# fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
 
 # =============================================================================
 # Create some test maps
