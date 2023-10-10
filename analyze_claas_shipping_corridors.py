@@ -261,7 +261,7 @@ f = h5py.File(claas3_l3_aux_data_file, 'r')
 vzaData = f['satzen'][1, istart:iend:stride, jstart:jend:stride] 
 f.close()
 vzaMask = vzaData > 70
-del vzaData, claas3_l3_aux_data_file
+del vzaData, claas3_l3_aux_data_file, f
     
 if 'lat_claas' not in locals():
           
@@ -278,7 +278,6 @@ if 'lat_claas' not in locals():
     lat_claas = np.flipud(lat_claas)
         
     del claas3_file, claas3_data
-        
         
         
 # =============================================================================
@@ -331,8 +330,11 @@ centered_lat_inds, centered_lon_inds, centered_dists = \
     center_shipping_corridor_perpendicular_lines(all_lat_indices, 
                                                  all_lon_indices, 
                                                  all_distances)
- 
+    
 avg_distances = np.nanmean(centered_dists, axis=0)
+
+del (all_distances, all_lat_indices, all_lon_indices, c, distances, flag_sc, 
+     lat_indices, lon_indices, num_processes, results)
 
 
 # =============================================================================
@@ -357,7 +359,7 @@ print("Read data with %d cores in %s seconds" % (read_cores, time.time() -
 # Close the pool when you're done
 pool.close()
         
-del args_list, pool 
+del args_list, pool, istart, iend, jstart, jend, stride, read_cores, read_mode 
         
 # Convert the results to a numpy array
 var_data_stack = np.dstack(var_data_stack)
@@ -375,7 +377,18 @@ var_data_nmonths = (100 * (np.nansum(var_data_stack, axis = 2) /
 # Keep only sea areas
 var_data_mean = np.where(lsm, var_data_mean, np.nan)
     
+# Find data mean values centered along the shipping corridor
+centered_data_mean = np.full_like(centered_dists, np.nan)
+
+for i in range(centered_data_mean.shape[0]):
     
+    for j in range(centered_data_mean.shape[1]):
+        
+        if (~np.isnan(centered_lat_inds[i, j]) and 
+            ~np.isnan(centered_lon_inds[i, j])):
+            
+            centered_data_mean[i, j] = var_data_mean[
+                int(centered_lat_inds[i, j]), int(centered_lon_inds[i, j])]
 
     
 # =============================================================================
