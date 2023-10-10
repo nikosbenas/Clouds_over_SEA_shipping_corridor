@@ -192,12 +192,16 @@ def center_shipping_corridor_perpendicular_lines(all_lat_indices,
 
 
 
+# =============================================================================
+# Definitions
+# =============================================================================
+
+
 # Define variables to read
-var_list = ['cdnc_liq']
+var = 'cdnc_liq'
 
 # Define Shipping Corridor
 sc = '2'
-
 
 # Lats and lons at four corners of region: ul, ur, lr, ll
 # toplat = -10; bottomlat = -35
@@ -208,10 +212,6 @@ leftlon = -10; rightlon = 10
 lats = [toplat, toplat, bottomlat, bottomlat]
 lons = [leftlon, rightlon, rightlon, leftlon]
 del toplat, bottomlat, leftlon, rightlon
-
-# =============================================================================
-# Read CLAAS-3 data
-# =============================================================================
 
 # Define bounding box: ul lon, lr lat,lr lon, ul lat
 bounding_box = [lons[0], lats[2], lons[2], lats[0]]
@@ -229,6 +229,7 @@ end_year = 2022
 # Create vector of dates for plotting
 dates = [datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d')
          for year in range(start_year, end_year + 1) for month in range(1, 13)]
+
 
 # =============================================================================
 # Read some CLAAS data once: lat, lon and VZA, land-sea mask
@@ -261,70 +262,38 @@ vzaData = f['satzen'][1, istart:iend:stride, jstart:jend:stride]
 f.close()
 vzaMask = vzaData > 70
 del vzaData, claas3_l3_aux_data_file
-
-for var in var_list:
     
-    if 'lat_claas' not in locals():
+if 'lat_claas' not in locals():
           
-          # Use an existing file
-        claas3_file = cdict.cdr_folder[2004] + '2004/02/' +\
-            cdict.FileNameStart[var] + '20040201000000423SVMSG01MA.nc'
-        # Open the file and read the latitude and longitude
-        claas3_data = Dataset(claas3_file, 'r')
-        lat_claas = claas3_data['lat'][istart:iend:stride]
-        lon_claas = claas3_data['lon'][jstart:jend:stride]
-        # Create mesh grid
-        lon_claas, lat_claas = np.meshgrid(lon_claas, lat_claas)
-        
-        lat_claas = np.flipud(lat_claas)
-        
-        del claas3_file, claas3_data
-
-
-# =============================================================================
-# Loop over all years and months to read CLAAS data into a 3D array
-# =============================================================================
-
-    # Create a list of arguments for each combination of year and month
-    args_list = [(year, month, istart, iend, jstart, jend, stride, 
-                  cdict.cdr_folder[year], var, lat_claas, lon_claas, vzaMask, 
-                  read_mode) for year in range(start_year, end_year + 1) 
-                 for month in range(1, 13)]
-        
-    # Create a multiprocessing pool with the desired number of cores
-    pool = multiprocessing.Pool(read_cores)
-        
-    # Use the pool to call the function with the given arguments in parallel
-    start_time = time.time()
-    var_data_stack = pool.map(ctf.read_data_parallel, args_list)
-    print("Read data with %d cores in %s seconds" % (read_cores, time.time() -
-                                                     start_time))
-        
-    # Close the pool when you're done
-    pool.close()
-        
-    del args_list, pool 
-        
-    # Convert the results to a numpy array
-    var_data_stack = np.dstack(var_data_stack)
-    var_data_stack.filled(np.nan)
-    var_data_stack = var_data_stack.data
-    var_data_stack[var_data_stack == -999] = np.nan
-
-# =============================================================================
-# OPTIONAL CODE: Calculate time series average per grid cell
-# =============================================================================
-    var_data_mean = np.nanmean(var_data_stack, axis = 2)
-    var_data_nmonths = (100 * (np.nansum(var_data_stack, axis = 2) / 
-                               var_data_mean) / var_data_stack.shape[2])
+    # Use an existing file
+    claas3_file = cdict.cdr_folder[2004] + '2004/02/' +\
+        cdict.FileNameStart[var] + '20040201000000423SVMSG01MA.nc'
+    # Open the file and read the latitude and longitude
+    claas3_data = Dataset(claas3_file, 'r')
+    lat_claas = claas3_data['lat'][istart:iend:stride]
+    lon_claas = claas3_data['lon'][jstart:jend:stride]
+    # Create mesh grid
+    lon_claas, lat_claas = np.meshgrid(lon_claas, lat_claas)
     
-    # Keep only sea areas
-    var_data_mean = np.where(lsm, var_data_mean, np.nan)
-    
-    
+    lat_claas = np.flipud(lat_claas)
+        
+    del claas3_file, claas3_data
+        
+        
+        
 # =============================================================================
-# Load shipping corridor data and find angle with North
+#
+# 1. Load shipping corridor data, find angle with North.
+#
+# 2. For each pixel at corridor center, find pixels along the line 
+#    perpendicular to the corridor.
+#
+# 3. Center all perpendicular lines to the corridor center (zero distance),
+#    find average distances from center. 
+#
 # =============================================================================    
+
+# 1. ==========================================================================
 
 flag_sc = np.load('flags_shipping_corridor_' + sc + '.npy')
 
@@ -333,10 +302,7 @@ sc_centlat, sc_centlon = find_shipping_corridor_center_coordinates(flag_sc)
 angle_radians = find_angle_bewteen_shipping_corrridor_and_north(sc_centlat, 
                                                                 sc_centlon)
 
-# =============================================================================
-# For each pixel at corridor center, find pixels along the line perpendicular 
-# to the corridor 
-# =============================================================================
+# 2. ==========================================================================
 
 num_processes = 10
 
@@ -359,10 +325,7 @@ if __name__ == "__main__":
         all_lat_indices.append(lat_indices)
         all_lon_indices.append(lon_indices)        
 
-
-# =============================================================================
-# Center all perpendicular lines to the corridor center (zero distance) 
-# =============================================================================
+# 3. ==========================================================================
 
 centered_lat_inds, centered_lon_inds, centered_dists = \
     center_shipping_corridor_perpendicular_lines(all_lat_indices, 
@@ -370,6 +333,50 @@ centered_lat_inds, centered_lon_inds, centered_dists = \
                                                  all_distances)
  
 avg_distances = np.nanmean(centered_dists, axis=0)
+
+
+# =============================================================================
+# Loop over all years and months to read CLAAS data into a 3D array
+# =============================================================================
+
+# Create a list of arguments for each combination of year and month
+args_list = [(year, month, istart, iend, jstart, jend, stride, 
+              cdict.cdr_folder[year], var, lat_claas, lon_claas, vzaMask, 
+              read_mode) for year in range(start_year, end_year + 1) 
+             for month in range(1, 13)]
+        
+# Create a multiprocessing pool with the desired number of cores
+pool = multiprocessing.Pool(read_cores)
+        
+# Use the pool to call the function with the given arguments in parallel
+start_time = time.time()
+var_data_stack = pool.map(ctf.read_data_parallel, args_list)
+print("Read data with %d cores in %s seconds" % (read_cores, time.time() - 
+                                                 start_time))
+        
+# Close the pool when you're done
+pool.close()
+        
+del args_list, pool 
+        
+# Convert the results to a numpy array
+var_data_stack = np.dstack(var_data_stack)
+var_data_stack.filled(np.nan)
+var_data_stack = var_data_stack.data
+var_data_stack[var_data_stack == -999] = np.nan
+
+# =============================================================================
+# OPTIONAL CODE: Calculate time series average per grid cell
+# =============================================================================
+var_data_mean = np.nanmean(var_data_stack, axis = 2)
+var_data_nmonths = (100 * (np.nansum(var_data_stack, axis = 2) / 
+                               var_data_mean) / var_data_stack.shape[2])
+    
+# Keep only sea areas
+var_data_mean = np.where(lsm, var_data_mean, np.nan)
+    
+    
+
     
 # =============================================================================
 # Analyze all pixels around center of shipping corridor
