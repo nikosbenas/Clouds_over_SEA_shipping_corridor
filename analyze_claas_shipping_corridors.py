@@ -198,7 +198,7 @@ def center_shipping_corridor_perpendicular_lines(all_lat_indices,
 
 
 # Define variables to read
-var = 'cdnc_liq'
+var = 'cre_liq'
 
 # Define Shipping Corridor
 sc = '2'
@@ -332,6 +332,9 @@ centered_lat_inds, centered_lon_inds, centered_dists = \
                                                  all_distances)
     
 avg_distances = np.nanmean(centered_dists, axis=0)
+zero_index = np.where(avg_distances == 0)[0][0]
+# Negate the values following the zero
+avg_distances[zero_index + 1:] = -avg_distances[zero_index + 1:]
 
 del (all_distances, all_lat_indices, all_lon_indices, c, distances, flag_sc, 
      lat_indices, lon_indices, num_processes, results)
@@ -352,7 +355,7 @@ pool = multiprocessing.Pool(read_cores)
         
 # Use the pool to call the function with the given arguments in parallel
 start_time = time.time()
-var_data_stack = pool.map(ctf.read_data_parallel, args_list)
+data_ts = pool.map(ctf.read_data_parallel, args_list)
 print("Read data with %d cores in %s seconds" % (read_cores, time.time() - 
                                                  start_time))
         
@@ -362,128 +365,88 @@ pool.close()
 del args_list, pool, istart, iend, jstart, jend, stride, read_cores, read_mode 
         
 # Convert the results to a numpy array
-var_data_stack = np.dstack(var_data_stack)
-var_data_stack.filled(np.nan)
-var_data_stack = var_data_stack.data
-var_data_stack[var_data_stack == -999] = np.nan
+data_ts = np.dstack(data_ts)
+data_ts.filled(np.nan)
+data_ts = data_ts.data
+data_ts[data_ts == -999] = np.nan
 
 # =============================================================================
 # OPTIONAL CODE: Calculate time series average per grid cell
 # =============================================================================
-var_data_mean = np.nanmean(var_data_stack, axis = 2)
-var_data_nmonths = (100 * (np.nansum(var_data_stack, axis = 2) / 
-                               var_data_mean) / var_data_stack.shape[2])
+data_ts_mean = np.nanmean(data_ts, axis = 2)
+data_ts_months = (100 * (np.nansum(data_ts, axis = 2) / 
+                               data_ts_mean) / data_ts.shape[2])
     
 # Keep only sea areas
-var_data_mean = np.where(lsm, var_data_mean, np.nan)
+data_ts_mean = np.where(lsm, data_ts_mean, np.nan)
     
-# Find data mean values centered along the shipping corridor
-centered_data_mean = np.full_like(centered_dists, np.nan)
+# =============================================================================
+# # Find data mean values centered along the shipping corridor
+# =============================================================================
+centered_data_ts_mean = np.full_like(centered_dists, np.nan)
 
-for i in range(centered_data_mean.shape[0]):
+for i in range(centered_data_ts_mean.shape[0]):
     
-    for j in range(centered_data_mean.shape[1]):
+    for j in range(centered_data_ts_mean.shape[1]):
         
         if (~np.isnan(centered_lat_inds[i, j]) and 
             ~np.isnan(centered_lon_inds[i, j])):
             
-            centered_data_mean[i, j] = var_data_mean[
+            centered_data_ts_mean[i, j] = data_ts_mean[
                 int(centered_lat_inds[i, j]), int(centered_lon_inds[i, j])]
 
-    
+centered_data_ts_mean_avg = np.nanmean(centered_data_ts_mean, axis = 0)
+centered_data_ts_mean_N = (np.nansum(centered_data_ts_mean, axis = 0) /
+                           centered_data_ts_mean_avg)
 # =============================================================================
-# Analyze all pixels around center of shipping corridor
+# Calculate straight line to imitate absence of the shipping corridor
 # =============================================================================
 
-# List containg all values around center of corridor
-# var_pxl_all = []; lat_pxl_all = []; lon_pxl_all = []
+# Find indices of grid cells defining the range -250 km to 250 km from center
+iw = np.argmin(abs(-250 - avg_distances)) # index west
+ie = np.argmin(abs(250 - avg_distances)) # index east
 
-# halfwidth = 50
+# Find a and b in line y = ax + b
+x1 = avg_distances[iw]
+x2 = avg_distances[ie]
+y1 = centered_data_ts_mean_avg[iw]
+y2 = centered_data_ts_mean_avg[ie]
 
-# for i in range(len(first_occurrences)):
-    
-#     if first_occurrences[i] != 0:
-        
-#         # Column at middle of shipping corridor
-#         d_col = int((last_occurrences[i] + first_occurrences[i])/2)
-        
-#         # Save all points around the center of SC
-#         if d_col - halfwidth > 0: 
-            
-#             var_pxl_all.append(var_data_mean[i][d_col-halfwidth : d_col+halfwidth])
-#             lat_pxl_all.append(lat_claas[i][d_col-halfwidth : d_col+halfwidth])
-#             lon_pxl_all.append(lon_claas[i][d_col-halfwidth : d_col+halfwidth])
-        
-# var_pxl_all = np.array(var_pxl_all)
-# lat_pxl_all = np.array(lat_pxl_all)
-# lon_pxl_all = np.array(lon_pxl_all)
+a = (y2 - y1) / (x2 - x1)
+b = y2 - a*x2
 
-# distances = np.full_like(lat_pxl_all, np.nan)
-# center = int(var_pxl_all.shape[1]/2)
+# Find line values at avg_distances points
+y = a * avg_distances + b
 
-# # Calculate (horizontal) distances from center of corridor (in km)
-# for i in range(len(lat_pxl_all)):
-    
-#     # Center point coordinates
-#     pc =  [lat_pxl_all[i, center], lon_pxl_all[i, center]]
-    
-#     for j in range(lat_pxl_all.shape[1]):
-        
-#         pj = [lat_pxl_all[i, j], lon_pxl_all[i, j]]
-        
-#         distances[i, j] = gd.geodesic(pc, pj).km
-        
-#         if j < center:
-            
-#             distances[i, j] = - distances[i, j]
-        
-# # Average distance along the west-east axis
-# dist_mean = np.mean(distances, axis = 0)
-# var_pxl_all_mean = np.nanmean(var_pxl_all, axis = 0)
-
-# var_pxl_all_mean_sc = np.full_like(var_pxl_all_mean, np.nan)
-# var_pxl_all_mean_sc[center - sc_width:center + sc_width] =\
-#     var_pxl_all_mean[center - sc_width:center + sc_width]
-
-# =============================================================================
-# # Select N initial and final points in the array and interpolate the rest
-# =============================================================================
-# var_pxl_all_mean_n = copy.deepcopy(var_pxl_all_mean)
-# N = 10
-# var_pxl_all_mean_n[N:-N] = np.nan
-
-# # Indices of non-nan elements
-# non_nan_indices = np.where(~np.isnan(var_pxl_all_mean_n))[0]
-
-# # Interpolate using non-nan elements
-# interpolation_points = non_nan_indices
-# var_pxl_all_mean_interp = np.interp(np.arange(len(var_pxl_all_mean_n)), 
-#                                     interpolation_points, 
-#                                     var_pxl_all_mean_n[non_nan_indices])
+# Keep data falling at most 300 km from the corridor center
+centered_data_ts_mean_avg[abs(avg_distances) > 350] = np.nan
+avg_distances[abs(avg_distances) > 350] = np.nan
 
 
-# fig = plt.figure()
-# plt.plot(dist_mean, var_pxl_all_mean, label = 'Original values')
-# plt.plot(dist_mean, var_pxl_all_mean_interp, linestyle = ':', color = 'k', 
-#          label = 'Interpolated values')
-# plt.axvline(x = dist_mean[center], linestyle = ':', color='grey')
-# plt.ylabel('[' + cdict.varUnits[var] + ']')
-# plt.xlabel('Distance from corridor center, W to E [km]')
-# plt.title(var.upper() + ' across shipping corridor #' + sc)
-# plt.legend()
-# outfile = 'Figures/' + var.upper() + '_across_sc_' + str(sc)
-# fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+# Plot time series average distribution centered on shipping corridor
+fig = plt.figure()
+plt.plot(avg_distances, centered_data_ts_mean_avg, label = 'SC incl.')
+plt.plot(avg_distances, y, linestyle = ':', color = 'k', label = 'SC excl.')
+plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
+plt.ylabel('[' + cdict.varUnits[var] + ']')
+plt.xlabel('Distance from corridor center, W to E [km]')
+plt.title(var.upper() + ' across shipping corridor (SC)')
+plt.legend()
+outfile = 'Figures/' + var.upper() + '_time_series_mean_across_sc.png'
+fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
 
-# diff = var_pxl_all_mean - var_pxl_all_mean_interp
+diff = centered_data_ts_mean_avg - y
 
-# fig = plt.figure()
-# plt.plot(dist_mean, diff)
-# plt.axvline(x = dist_mean[center], linestyle = ':', color='grey')
-# plt.ylabel('[' + cdict.varUnits[var] + ']')
-# plt.xlabel('Distance from corridor center, W to E [km]')
-# plt.title(var.upper() + ' change due to shipping corridor #' + sc)
-# outfile = 'Figures/' + var.upper() + '_change_due_to_sc_' + str(sc)
-# fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+fig = plt.figure()
+plt.plot(avg_distances, diff)
+plt.plot(avg_distances, np.full_like(avg_distances, 0), linestyle = ':', 
+         color='grey')
+plt.axvline(x = avg_distances[zero_index], linestyle = 'dashed', color='grey')
+plt.ylabel('[' + cdict.varUnits[var] + ']')
+plt.xlabel('Distance from corridor center, W to E [km]')
+plt.title(var.upper() + ' change due to shipping corridor')
+outfile = 'Figures/' + var.upper() + '_time_series_mean_change_across_sc.png'
+fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
 
 # =============================================================================
 # Create some test maps
