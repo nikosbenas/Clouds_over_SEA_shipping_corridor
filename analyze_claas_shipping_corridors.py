@@ -198,7 +198,14 @@ def center_shipping_corridor_perpendicular_lines(all_lat_indices,
 
 
 # Define variables to read
-var = 'cre_liq'
+var = 'cdnc_liq'
+
+# Select the time period to analyze CLAAS-3 data
+start_year = 2004
+end_year = 2022
+
+# Flag to analyze seasonality
+seasonally = True
 
 # Define Shipping Corridor
 sc = '2'
@@ -221,10 +228,6 @@ del lats, lons
 stride = 1
 read_mode = 'stride'
 read_cores = 10
-
-# Select the time period to analyze CLAAS-3 data
-start_year = 2004
-end_year = 2022
 
 # Create vector of dates for plotting
 dates = [datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d')
@@ -369,6 +372,22 @@ data_ts = np.dstack(data_ts)
 data_ts.filled(np.nan)
 data_ts = data_ts.data
 data_ts[data_ts == -999] = np.nan
+
+# =============================================================================
+# OPTIONAL CODE: Perform the analysis seasonally (per individual month)
+# =============================================================================
+
+# Reshpae time series array to add a month dimension
+shape_4d = (data_ts.shape[0], data_ts.shape[1], end_year + 1 - start_year, 12)
+data_seas = data_ts.reshape(shape_4d) 
+
+# All-year average per grid cell per month
+data_seas_mean = np.nanmean(data_seas, axis = 2)
+
+# Loop over each month
+for m in range(12):
+    
+    print(m)
 
 # =============================================================================
 # OPTIONAL CODE: Calculate time series average per grid cell
