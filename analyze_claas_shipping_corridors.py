@@ -191,6 +191,30 @@ def center_shipping_corridor_perpendicular_lines(all_lat_indices,
             np.vstack(centered_dists))
 
 
+def center_data_along_corridor(data_array, centered_lat_inds, 
+                               centered_lon_inds):
+    
+    """
+    This function takes a 2D array and centers the data along the shipping
+    corridor that crosses it, using indices of the coordinates of the corridor
+    center.
+    
+    Input: Data array and arrays of lat and lon indices centered along the 
+           corridor.
+    Output: Data array centered along the corridor 
+    
+    """
+    
+    valid_indices = ~np.isnan(centered_lat_inds) & ~np.isnan(centered_lon_inds)
+    
+    centered_data = np.full_like(centered_lat_inds, np.nan)
+    
+    centered_data[valid_indices] = data_array[
+        centered_lat_inds[valid_indices].astype(int), 
+        centered_lon_inds[valid_indices].astype(int)]
+
+    return centered_data
+
 
 # =============================================================================
 # Definitions
@@ -402,17 +426,10 @@ data_ts_mean = np.where(lsm, data_ts_mean, np.nan)
 # =============================================================================
 # # Find data mean values centered along the shipping corridor
 # =============================================================================
-centered_data_ts_mean = np.full_like(centered_dists, np.nan)
 
-for i in range(centered_data_ts_mean.shape[0]):
-    
-    for j in range(centered_data_ts_mean.shape[1]):
-        
-        if (~np.isnan(centered_lat_inds[i, j]) and 
-            ~np.isnan(centered_lon_inds[i, j])):
-            
-            centered_data_ts_mean[i, j] = data_ts_mean[
-                int(centered_lat_inds[i, j]), int(centered_lon_inds[i, j])]
+centered_data_ts_mean = center_data_along_corridor(data_ts_mean, 
+                                                    centered_lat_inds, 
+                                                    centered_lon_inds)
 
 centered_data_ts_mean_avg = np.nanmean(centered_data_ts_mean, axis = 0)
 centered_data_ts_mean_N = (np.nansum(centered_data_ts_mean, axis = 0) /
@@ -471,10 +488,19 @@ fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
 # Create some test maps
 # =============================================================================
 
-# outfile = './CDNC_average.png'
-# create_map(lat_claas, lon_claas, var_data_mean_sc, np.nanmin(var_data_mean), 
-#             np.nanmax(var_data_mean), 'CDNC average', 'cm-3', 'viridis', 'neither', 
-#             outfile, saveplot = False)
+outfile = './CDNC_average.png'
+create_map(lat_claas, lon_claas, data_ts_mean, np.nanmin(data_ts_mean), 
+            np.nanmax(data_ts_mean), 'CDNC average', 'cm-3', 'viridis', 'neither', 
+            outfile, saveplot = False)
+
+for m in range(12):
+    
+    outfile = 'test'
+    
+    create_map(lat_claas, lon_claas, data_seas_mean[:, :, m], 
+               np.nanmin(data_seas_mean), np.nanmax(data_seas_mean), 
+               'CDNC average in month ' + str(m+1).zfill(2), 'cm-3', 'viridis', 
+               'neither', outfile, saveplot = False)
 
 
 # outfile = './Flag_sc.png'
