@@ -216,6 +216,38 @@ def center_data_along_corridor(data_array, centered_lat_inds,
     return centered_data
 
 
+def calculate_NoShip_line(avg_distances, profile_data, half_range):
+    
+    """
+    This function calculates a straight line between points 'corridor center -
+    half range and corridor center + half range' to immitate the absence of
+    the shipping corridor.
+    
+    Input: avg_distances (from corridor center in km), profile data (1D array,
+           same size as _avg_distances), half_range (distance from corridor 
+           center to one of the two ponts, in km).
+    Output: y-line of interpolated and extrapolated values along the 
+            avg_distances
+                                                     
+    """
+    
+    # Find indices of grid cells defining the range -half_range km to 
+    # half_range km from center.
+    iw = np.argmin(abs(-half_range - avg_distances)) # index west
+    ie = np.argmin(abs(half_range - avg_distances)) # index east
+
+    # Find a and b in line y = ax + b
+    x1 = avg_distances[iw]
+    x2 = avg_distances[ie]
+    y1 = profile_data[iw]
+    y2 = profile_data[ie]
+
+    a = (y2 - y1) / (x2 - x1)
+    b = y2 - a*x2
+
+    # Find line values at avg_distances points
+    return a * avg_distances + b
+
 # =============================================================================
 # Definitions
 # =============================================================================
@@ -229,7 +261,8 @@ start_year = 2004
 end_year = 2022
 
 # Flag to analyze seasonality
-seasonally = True
+analyze_seasonally = True
+analyze_timeseries_average = True
 
 # Define Shipping Corridor
 sc = '2'
@@ -401,39 +434,52 @@ data_ts[data_ts == -999] = np.nan
 # OPTIONAL CODE: Perform the analysis seasonally (per individual month)
 # =============================================================================
 
-# Reshpae time series array to add a month dimension
-shape_4d = (data_ts.shape[0], data_ts.shape[1], end_year + 1 - start_year, 12)
-data_seas = data_ts.reshape(shape_4d) 
-
-# All-year average per grid cell per month
-data_seas_mean = np.nanmean(data_seas, axis = 2)
-
-# Loop over each month
-for m in range(12):
+if analyze_seasonally:
     
-    print(m)
+    # Reshpae time series array to add a month dimension
+    shape_4d = (data_ts.shape[0], data_ts.shape[1], end_year + 1 - start_year, 
+                12)
+    data_seas = data_ts.reshape(shape_4d) 
+
+    # All-year average per grid cell per month ...
+    data_seas_mean = np.nanmean(data_seas, axis = 2)
+    
+    # ... and centered along the corridor ...
+    data_seas_mean_cent = np.full((centered_lat_inds.shape[0], 
+                                   centered_lat_inds.shape[1], 12), np.nan)
+
+    for m in range(12):
+    
+        data_seas_mean_cent[:, :, m] = center_data_along_corridor(
+            data_seas_mean[:, :, m], centered_lat_inds, centered_lon_inds)
+        
+    # ... and averaged along the corridor to get a profile per month
+    data_seas_mean_cent_avg = np.nanmean(data_seas_mean_cent, axis = 0)
+    data_seas_mean_cent_N = (np.nansum(data_seas_mean_cent, axis = 0) /
+                               data_seas_mean_cent_avg)
 
 # =============================================================================
 # OPTIONAL CODE: Calculate time series average per grid cell
 # =============================================================================
-data_ts_mean = np.nanmean(data_ts, axis = 2)
-data_ts_months = (100 * (np.nansum(data_ts, axis = 2) / 
-                               data_ts_mean) / data_ts.shape[2])
-    
-# Keep only sea areas
-data_ts_mean = np.where(lsm, data_ts_mean, np.nan)
-    
-# =============================================================================
-# # Find data mean values centered along the shipping corridor
-# =============================================================================
 
-centered_data_ts_mean = center_data_along_corridor(data_ts_mean, 
-                                                    centered_lat_inds, 
-                                                    centered_lon_inds)
-
-centered_data_ts_mean_avg = np.nanmean(centered_data_ts_mean, axis = 0)
-centered_data_ts_mean_N = (np.nansum(centered_data_ts_mean, axis = 0) /
-                           centered_data_ts_mean_avg)
+if analyze_timeseries_average:
+    
+    data_ts_mean = np.nanmean(data_ts, axis = 2)
+    data_ts_months = (100 * (np.nansum(data_ts, axis = 2) / 
+                                   data_ts_mean) / data_ts.shape[2])
+        
+    # Keep only sea areas
+    data_ts_mean = np.where(lsm, data_ts_mean, np.nan)
+        
+    # Find data mean values centered along the shipping corridor
+    centered_data_ts_mean = center_data_along_corridor(data_ts_mean, 
+                                                        centered_lat_inds, 
+                                                        centered_lon_inds)
+    
+    centered_data_ts_mean_avg = np.nanmean(centered_data_ts_mean, axis = 0)
+    centered_data_ts_mean_N = (np.nansum(centered_data_ts_mean, axis = 0) /
+                               centered_data_ts_mean_avg)
+    
 # =============================================================================
 # Calculate straight line to imitate absence of the shipping corridor
 # =============================================================================
