@@ -248,6 +248,24 @@ def calculate_NoShip_line(avg_distances, profile_data, half_range):
     # Find line values at avg_distances points
     return a * avg_distances + b
 
+
+def plot_profile_and_NoShip_line(profile_data, profile_NoShip, var, 
+                                 avg_distances, zero_index, title, outfile,
+                                 saveplot):
+    
+    fig = plt.figure()
+    plt.plot(avg_distances, profile_data, label = 'SC incl.')
+    plt.plot(avg_distances, profile_NoShip, linestyle = ':', color = 'k', 
+             label = 'SC excl.')
+    plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
+    plt.ylabel('[' + cdict.varUnits[var] + ']')
+    plt.xlabel('Distance from corridor center, W to E [km]')
+    plt.title(title)
+    plt.legend()
+    
+    if saveplot:
+        fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+        
 # =============================================================================
 # Definitions
 # =============================================================================
@@ -290,6 +308,21 @@ read_cores = 10
 dates = [datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d')
          for year in range(start_year, end_year + 1) for month in range(1, 13)]
 
+# Months dictionary 
+month = {
+    1: "January",
+    2: "February",
+    3: "March",
+    4: "April",
+    5: "May",
+    6: "June",
+    7: "July",
+    8: "August",
+    9: "September",
+    10: "October",
+    11: "November",
+    12: "December"
+}
 
 # =============================================================================
 # Read some CLAAS data once: lat, lon and VZA, land-sea mask
@@ -448,15 +481,126 @@ if analyze_seasonally:
     data_seas_mean_cent = np.full((centered_lat_inds.shape[0], 
                                    centered_lat_inds.shape[1], 12), np.nan)
 
+    data_seas_area_mean = np.full(12, np.nan) # Area-weighted averages
+    
     for m in range(12):
     
         data_seas_mean_cent[:, :, m] = center_data_along_corridor(
             data_seas_mean[:, :, m], centered_lat_inds, centered_lon_inds)
         
+        
+        # Also calculate area-weighted seasonal averages
+        data_seas_area_mean[m] = ctf.area_weighted_average(
+            data_seas_mean[:, :, m], lat_claas)
+        
     # ... and averaged along the corridor to get a profile per month
     data_seas_mean_cent_avg = np.nanmean(data_seas_mean_cent, axis = 0)
     data_seas_mean_cent_N = (np.nansum(data_seas_mean_cent, axis = 0) /
                                data_seas_mean_cent_avg)
+    
+    # Find NoShip lines per month ...
+    data_seas_mean_cent_avg_NoShip = np.full_like(data_seas_mean_cent_avg, 
+                                                  np.nan)
+    
+    for m in range(12):
+        
+        data_seas_mean_cent_avg_NoShip[:, m] = calculate_NoShip_line(
+            avg_distances, data_seas_mean_cent_avg[:, m], 250)
+        
+            
+    # ... and differences per month
+    diff_mon = data_seas_mean_cent_avg - data_seas_mean_cent_avg_NoShip
+    
+##### OPTIONAL PLOTS
+    
+##### 1. 12 separate plots of profiles and NoShip lines (one per month)
+    saveplot = False
+    
+    for m in range(12):
+        
+        outfile = 'Figures/' + var.upper() + '_month_' + str(m).zfill(2) +\
+            '_mean_across_sc.png'
+        plot_profile_and_NoShip_line(
+            data_seas_mean_cent_avg[:, m],data_seas_mean_cent_avg_NoShip[:, m], 
+            var, avg_distances, zero_index, 
+            var.upper() + ' across shipping corridor, ' + month[m + 1] +\
+                ' average', outfile, saveplot = saveplot)
+        
+##### 2. All 12 monthly profiles in one plot
+    saveplot = False    
+
+    avg_distances_350 = copy.deepcopy(avg_distances)
+    for i in range(12):
+        data_seas_mean_cent_avg[abs(avg_distances) > 350, i] = np.nan
+    avg_distances_350[abs(avg_distances) > 350] = np.nan
+    
+    fig, ax = plt.subplots()
+    
+    # Define the tab20 colors
+    tab20_colors = plt.cm.tab20(np.linspace(0, 1, 20))
+    
+    # Use the first 12 colors for the plot
+    ax.set_prop_cycle(color=tab20_colors[:12])
+    
+    for i in range(12):
+        
+        label = month[i + 1]
+        ax.plot(avg_distances_350, data_seas_mean_cent_avg[:, i], label = label)
+        
+    plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.set_xlabel('Distance from corridor center, W to E [km]')
+    ax.set_ylabel('[' + cdict.varUnits[var] + ']')
+    ax.set_title(var.upper() + ' across shipping corridor, monthly average')
+    
+    if saveplot:
+        outfile = 'Figures/' + var.upper() + '_monthly_mean_across_sc.png'
+        fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+    
+##### 3. All 12 monthly difference profiles in one plot
+    saveplot = False
+    
+    for i in range(12):
+        diff_mon[abs(avg_distances) > 350, i] = np.nan
+        
+    fig, ax = plt.subplots()
+    
+    # Define the tab20 colors
+    tab20_colors = plt.cm.tab20(np.linspace(0, 1, 20))
+    
+    # Use the first 12 colors for the plot
+    ax.set_prop_cycle(color=tab20_colors[:12])
+    
+    for i in range(12):
+        
+        label = month[i + 1]
+        ax.plot(avg_distances_350, diff_mon[:, i], label = label)
+        
+    plt.plot(avg_distances_350, np.full_like(avg_distances_350, 0), 
+             linestyle = ':', color='grey')
+    plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.set_xlabel('Distance from corridor center, W to E [km]')
+    ax.set_ylabel('[' + cdict.varUnits[var] + ']')
+    ax.set_title(var.upper() + ' change due shipping corridor, monthly')
+    
+    if saveplot:
+        outfile = 'Figures/' + var.upper() + '_monthly_mean_change_across_sc.png'
+        fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+    
+##### 4. Seasonal area-weighted averages
+    saveplot = True
+
+    fig = plt.figure()
+    plt.plot(np.arange(1,13), data_seas_area_mean, color = 'k')
+    plt.ylabel('[' + cdict.varUnits[var] + ']')
+    plt.xlabel('Month')
+    plt.title('Area-weigthed average ' + var)
+    
+    if saveplot:
+        outfile = 'Figures/' + var.upper() + '_area_weighted_seasonal_mean.png'
+        fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+
 
 # =============================================================================
 # OPTIONAL CODE: Calculate time series average per grid cell
@@ -480,26 +624,21 @@ if analyze_timeseries_average:
     centered_data_ts_mean_N = (np.nansum(centered_data_ts_mean, axis = 0) /
                                centered_data_ts_mean_avg)
     
-# =============================================================================
-# Calculate straight line to imitate absence of the shipping corridor
-# =============================================================================
-
-# Find indices of grid cells defining the range -250 km to 250 km from center
-iw = np.argmin(abs(-250 - avg_distances)) # index west
-ie = np.argmin(abs(250 - avg_distances)) # index east
-
-# Find a and b in line y = ax + b
-x1 = avg_distances[iw]
-x2 = avg_distances[ie]
-y1 = centered_data_ts_mean_avg[iw]
-y2 = centered_data_ts_mean_avg[ie]
-
-a = (y2 - y1) / (x2 - x1)
-b = y2 - a*x2
-
-# Find line values at avg_distances points
-y = a * avg_distances + b
-
+    # Calculate straight line to imitate absence of the shipping corridor
+    centered_data_ts_mean_NoShip = calculate_NoShip_line(
+        avg_distances, centered_data_ts_mean_avg, 250)
+    
+    # OPTIONAL PLOTS
+    
+    outfile = 'Figures/' + var.upper() + '_time_series_mean_across_sc.png'
+    plot_profile_and_NoShip_line(
+        centered_data_ts_mean_avg, centered_data_ts_mean_NoShip, var, 
+        avg_distances, zero_index, 
+        var.upper() + ' across shipping corridor, time series average', 
+        outfile, saveplot = False)
+    
+    
+    
 # Keep data falling at most 300 km from the corridor center
 centered_data_ts_mean_avg[abs(avg_distances) > 350] = np.nan
 avg_distances[abs(avg_distances) > 350] = np.nan
@@ -508,7 +647,7 @@ avg_distances[abs(avg_distances) > 350] = np.nan
 # Plot time series average distribution centered on shipping corridor
 fig = plt.figure()
 plt.plot(avg_distances, centered_data_ts_mean_avg, label = 'SC incl.')
-plt.plot(avg_distances, y, linestyle = ':', color = 'k', label = 'SC excl.')
+plt.plot(avg_distances, centered_data_ts_mean_NoShip, linestyle = ':', color = 'k', label = 'SC excl.')
 plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
 plt.ylabel('[' + cdict.varUnits[var] + ']')
 plt.xlabel('Distance from corridor center, W to E [km]')
