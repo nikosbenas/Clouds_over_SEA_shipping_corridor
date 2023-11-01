@@ -278,8 +278,8 @@ var = 'cdnc_liq'
 start_year = 2004
 end_year = 2022
 
-# Flag to analyze seasonality
-analyze_seasonally = True
+# Flag to aselect optional analyses
+analyze_seasonally = False
 analyze_timeseries_average = True
 
 # Define Shipping Corridor
@@ -512,27 +512,28 @@ if analyze_seasonally:
     diff_mon = data_seas_mean_cent_avg - data_seas_mean_cent_avg_NoShip
     
 ##### OPTIONAL PLOTS
-    
-##### 1. 12 separate plots of profiles and NoShip lines (one per month)
-    saveplot = False
-    
-    for m in range(12):
-        
-        outfile = 'Figures/' + var.upper() + '_month_' + str(m).zfill(2) +\
-            '_mean_across_sc.png'
-        plot_profile_and_NoShip_line(
-            data_seas_mean_cent_avg[:, m],data_seas_mean_cent_avg_NoShip[:, m], 
-            var, avg_distances, zero_index, 
-            var.upper() + ' across shipping corridor, ' + month[m + 1] +\
-                ' average', outfile, saveplot = saveplot)
-        
-##### 2. All 12 monthly profiles in one plot
-    saveplot = False    
 
     avg_distances_350 = copy.deepcopy(avg_distances)
     for i in range(12):
         data_seas_mean_cent_avg[abs(avg_distances) > 350, i] = np.nan
     avg_distances_350[abs(avg_distances) > 350] = np.nan
+        
+##### 1. 12 separate plots of profiles and NoShip lines (one per month)
+    saveplot = True
+    
+    for m in range(12):
+        
+        outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
+            str(end_year) + '/' + var.upper() + '_month_' +\
+                str(m+1).zfill(2) + '_mean_across_sc.png'
+        plot_profile_and_NoShip_line(
+            data_seas_mean_cent_avg[:, m],data_seas_mean_cent_avg_NoShip[:, m], 
+            var, avg_distances_350, zero_index, 
+            var.upper() + ' across shipping corridor, ' + month[m + 1] +\
+                ' average', outfile, saveplot = saveplot)
+        
+##### 2. All 12 monthly profiles in one plot
+    saveplot = True    
     
     fig, ax = plt.subplots()
     
@@ -554,11 +555,12 @@ if analyze_seasonally:
     ax.set_title(var.upper() + ' across shipping corridor, monthly average')
     
     if saveplot:
-        outfile = 'Figures/' + var.upper() + '_monthly_mean_across_sc.png'
+        outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
+            str(end_year) + '/' + var.upper() + '_monthly_mean_across_sc.png'
         fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
     
 ##### 3. All 12 monthly difference profiles in one plot
-    saveplot = False
+    saveplot = True
     
     for i in range(12):
         diff_mon[abs(avg_distances) > 350, i] = np.nan
@@ -582,10 +584,11 @@ if analyze_seasonally:
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax.set_xlabel('Distance from corridor center, W to E [km]')
     ax.set_ylabel('[' + cdict.varUnits[var] + ']')
-    ax.set_title(var.upper() + ' change due shipping corridor, monthly')
+    ax.set_title(var.upper() + ' change due to shipping corridor, monthly')
     
     if saveplot:
-        outfile = 'Figures/' + var.upper() + '_monthly_mean_change_across_sc.png'
+        outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
+            str(end_year) + '/' + var.upper() + '_monthly_change_across_sc.png'
         fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
     
 ##### 4. Seasonal area-weighted averages
@@ -595,11 +598,33 @@ if analyze_seasonally:
     plt.plot(np.arange(1,13), data_seas_area_mean, color = 'k')
     plt.ylabel('[' + cdict.varUnits[var] + ']')
     plt.xlabel('Month')
-    plt.title('Area-weigthed average ' + var)
+    plt.title('Area-weigthed average ' + var.upper())
     
     if saveplot:
-        outfile = 'Figures/' + var.upper() + '_area_weighted_seasonal_mean.png'
+        outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
+            str(end_year) + '/' + var.upper() +\
+                '_area_weighted_seasonal_mean.png'
         fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+        
+##### 5. Seasonal average changes around the corridor
+    saveplot = True
+    
+    for i in range(12):
+        diff_mon[abs(avg_distances) > 250, i] = np.nan
+        
+    diff_mon_mean = np.nanmean(diff_mon, axis = 0)
+
+    fig = plt.figure()
+    plt.plot(np.arange(1,13), diff_mon_mean, color = 'k')
+    plt.ylabel('[' + cdict.varUnits[var] + ']')
+    plt.xlabel('Month')
+    plt.title('Average ' + var.upper() +
+              ' monthly change due to shipping corridor')
+    
+    if saveplot:
+        outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
+            str(end_year) + '/' + var.upper() + '_monthly_change_mean.png'
+        fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')        
 
 
 # =============================================================================
@@ -630,62 +655,70 @@ if analyze_timeseries_average:
     
     # OPTIONAL PLOTS
     
-    outfile = 'Figures/' + var.upper() + '_time_series_mean_across_sc.png'
+    outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
+        str(end_year) + '/'  + var.upper() +\
+            '_time_series_mean_across_sc_long.png'
     plot_profile_and_NoShip_line(
         centered_data_ts_mean_avg, centered_data_ts_mean_NoShip, var, 
         avg_distances, zero_index, 
         var.upper() + ' across shipping corridor, time series average', 
-        outfile, saveplot = False)
+        outfile, saveplot = True)
     
+    # Keep data falling at most 350 km from the corridor center
+    centered_data_ts_mean_avg[abs(avg_distances) > 350] = np.nan
+    avg_distances[abs(avg_distances) > 350] = np.nan
+
+    outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
+        str(end_year) + '/' + var.upper() + '_time_series_mean_across_sc.png'
+    plot_profile_and_NoShip_line(
+        centered_data_ts_mean_avg, centered_data_ts_mean_NoShip, var, 
+        avg_distances, zero_index, 
+        var.upper() + ' across shipping corridor, time series average', 
+        outfile, saveplot = True)
+
+    # Plot difference profile due to SC
+    saveplot = True
     
+    diff = centered_data_ts_mean_avg - centered_data_ts_mean_NoShip
     
-# Keep data falling at most 300 km from the corridor center
-centered_data_ts_mean_avg[abs(avg_distances) > 350] = np.nan
-avg_distances[abs(avg_distances) > 350] = np.nan
+    fig = plt.figure()
 
+    plt.plot(avg_distances_350, diff)
+    plt.plot(avg_distances_350, np.full_like(avg_distances_350, 0), 
+             linestyle = ':', color='grey')
+    plt.axvline(x = avg_distances_350[zero_index], linestyle = ':', 
+                color='grey')
+    plt.xlabel('Distance from corridor center, W to E [km]')
+    plt.ylabel('[' + cdict.varUnits[var] + ']')
+    plt.title(var.upper() + ' change due to shipping corridor')
+    
+    if saveplot:
+        outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
+            str(end_year) + '/' + var.upper() +\
+            '_time_series_mean_change_across_sc.png'
+        fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
 
-# Plot time series average distribution centered on shipping corridor
-fig = plt.figure()
-plt.plot(avg_distances, centered_data_ts_mean_avg, label = 'SC incl.')
-plt.plot(avg_distances, centered_data_ts_mean_NoShip, linestyle = ':', color = 'k', label = 'SC excl.')
-plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
-plt.ylabel('[' + cdict.varUnits[var] + ']')
-plt.xlabel('Distance from corridor center, W to E [km]')
-plt.title(var.upper() + ' across shipping corridor (SC)')
-plt.legend()
-outfile = 'Figures/' + var.upper() + '_time_series_mean_across_sc.png'
-fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
-
-diff = centered_data_ts_mean_avg - y
-
-fig = plt.figure()
-plt.plot(avg_distances, diff)
-plt.plot(avg_distances, np.full_like(avg_distances, 0), linestyle = ':', 
-         color='grey')
-plt.axvline(x = avg_distances[zero_index], linestyle = 'dashed', color='grey')
-plt.ylabel('[' + cdict.varUnits[var] + ']')
-plt.xlabel('Distance from corridor center, W to E [km]')
-plt.title(var.upper() + ' change due to shipping corridor')
-outfile = 'Figures/' + var.upper() + '_time_series_mean_change_across_sc.png'
-fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
 
 # =============================================================================
 # Create some test maps
 # =============================================================================
 
-outfile = './CDNC_average.png'
+outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
+    str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' +\
+        str(end_year) + '_average.png'
 create_map(lat_claas, lon_claas, data_ts_mean, np.nanmin(data_ts_mean), 
-            np.nanmax(data_ts_mean), 'CDNC average', 'cm-3', 'viridis', 'neither', 
-            outfile, saveplot = False)
+            np.nanmax(data_ts_mean), var.upper() + ' ' + str(start_year) +
+            '-' + str(end_year) + ' average', 'cm-3', 'viridis', 'neither', 
+            outfile, saveplot = True)
 
-for m in range(12):
+# for m in range(12):
     
-    outfile = 'test'
+#     outfile = 'test'
     
-    create_map(lat_claas, lon_claas, data_seas_mean[:, :, m], 
-               np.nanmin(data_seas_mean), np.nanmax(data_seas_mean), 
-               'CDNC average in month ' + str(m+1).zfill(2), 'cm-3', 'viridis', 
-               'neither', outfile, saveplot = False)
+#     create_map(lat_claas, lon_claas, data_seas_mean[:, :, m], 
+#                np.nanmin(data_seas_mean), np.nanmax(data_seas_mean), 
+#                'CDNC average in month ' + str(m+1).zfill(2), 'cm-3', 'viridis', 
+#                'neither', outfile, saveplot = False)
 
 
 # outfile = './Flag_sc.png'
