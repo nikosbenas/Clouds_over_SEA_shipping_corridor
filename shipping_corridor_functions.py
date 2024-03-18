@@ -1,5 +1,6 @@
 import glob
 import os
+import geopy.distance as gd
 import h5py
 from matplotlib import pyplot as plt
 from netCDF4 import Dataset
@@ -286,3 +287,135 @@ def calculate_running_mean(array, window_size):
         result[i] = np.nanmean(array[start:end])
     
     return result        
+
+
+def find_shipping_corridor_center_coordinates(flag_sc, lat_array, lon_array):
+    
+    '''
+    Description:
+        This function finds the latitude and longitude coordinates of the center of a shipping corridor based on a binary flag array indicating the presence of the corridor. It identifies the first and last occurrences of ones (representing the edges of the corridor) in each row of the flag array and calculates the center coordinates based on these occurrences.
+
+    Inputs:
+        - flag_sc: (2D NumPy array) Binary flag array indicating the presence of the shipping corridor
+        - lat_array: (2D NumPy array) Latitude coordinates corresponding to the flag array
+        - lon_array: (2D NumPy array) Longitude coordinates corresponding to the flag array
+
+    Outputs:
+        - sc_centlat: (1D Numpy array) Latitude coordinates of the center of the shipping corridor
+        - sc_centlon: (1D NumPy array) Longitude coordinates of the center of the shipping corridor
+    '''
+    
+    # Find first and last occurrences of ones (shipping corridor edges) in each 
+    # line
+    first_occurrences = np.argmax(flag_sc == 1, axis=1)
+
+    # Find the last occurrence of value 1 in each row (by reversing the array 
+    # along columns)
+    last_occurrences = np.argmax((flag_sc == 1)[:, ::-1], axis=1)
+
+    # Adjust the indices of the last occurrence to account for reversing
+    last_occurrences = flag_sc.shape[1] - 1 - last_occurrences  
+
+    # Define shipping corridor center lat and lon
+    sc_centlat = np.empty(flag_sc.shape[0])
+    sc_centlon = np.empty(flag_sc.shape[0])
+
+    for i in range(flag_sc.shape[0]):
+        
+        index = int((last_occurrences[i] + first_occurrences[i])/2)
+            
+        sc_centlat[i] = lat_array[i][index]
+        sc_centlon[i] = lon_array[i][index]
+      
+    del index  
+    
+    return sc_centlat, sc_centlon
+
+
+def find_angle_bewteen_shipping_corrridor_and_north(sc_centlat, sc_centlon):
+    
+    '''
+    Description:
+        This function calculates the angle between a shipping corridor and the north direction. It performs linear regression on the latitude and longitude coordinates of the shipping corridor to determine its orientation. Then, it calculates the angle between the orientation line and the north direction.
+
+    Inputs:
+        - sc_centlat: (1D NumPy array) Latitude coordinates of the shipping corridor center
+        - sc_centlon: (1D NumPy array) Longitude coordinates of the shipping corridor center
+
+    Outputs:
+         - angle_radians: (float) Angle between the shipping corridor and the north direction, in radians
+    '''
+    
+    # Perform linear regression to find the line equation
+    coefficients = np.polyfit(sc_centlon, sc_centlat, 1)
+    slope = coefficients[0]
+
+    # Calculate the angle between the line and south-to-north (meridian) direction
+    angle_radians = np.arctan(slope)
+    angle_degrees = np.degrees(angle_radians)
+
+    # Ensure the angle is between 0 and 180 degrees
+    if angle_degrees < 0:
+        angle_degrees += 180
+        
+    # This is the angle starting from the x-axis (east). Starting from North:
+    angle_degrees = angle_degrees - 90
+    
+    return np.radians(angle_degrees)   
+
+
+def find_line_perpendicular_to_corridor(c, sc_centlat, sc_centlon, angle_radians, lat_claas, lon_claas):
+
+    '''
+    Description:
+        This function calculates information about the grid cells lying along the line perpendicular to the shipping corridor center, based on the specified latitudinal line index (c).
+
+    Inputs:
+        - c: Index representing a specific latitudinal line, based on the SC flag 2D NumPy array.
+        - sc_centlat: 1D NumPy array containing latitude coordinates of the shipping corridor center (par latitude line).
+        - sc_centlon: 1D NumPy array containing longitude coordinates of the shipping corridor center (per latitude line).
+        - angle_radians: (float) Angle between the shipping corridor and the north direction, expressed in radians.
+        - lat_claas: 2D NumPy array containing latitude coordinates of the grid cells.
+        - lon_claas: 2D NumPy array containing longitude coordinates of the grid cells.
+
+    Outputs:
+        - distances: A 1D list containing distances (in kilometers) of the grid cells lying along the perpendicular line from the corridor center.
+        - lat_indices: A 1D list containing latitude indices of the grid cells lying along the perpendicular line.
+        - lon_indices: A 1D list containing longitude indices of the grid cells lying along the perpendicular line.
+    '''
+    
+    # Corridor center pixel coordinates
+    pc = [sc_centlat[c], sc_centlon[c]]
+
+    # Line intercept
+    b = sc_centlat[c] - angle_radians * sc_centlon[c]
+
+    # Array indices of pixels falling within (half-pixel) the perpendicular 
+    lat_indices = []
+    lon_indices = []
+    # Distances of the "line pixels" from the corridor center 
+    distances = []
+
+    for i in range(lat_claas.shape[0]):
+
+        expected_lats = angle_radians * lon_claas[i, :] + b
+
+        lon_ind = np.argmin(abs(lat_claas[i, :] - expected_lats))
+
+        if (lon_ind > 0) and (lon_ind < (lat_claas.shape[1] - 1)):
+
+            lat_indices.append(i)
+            lon_indices.append(lon_ind)
+
+            pij = [lat_claas[i, lon_ind], lon_claas[i, lon_ind]]
+            distances.append(gd.geodesic(pc, pij).km)
+
+        else:
+
+            continue
+
+    return distances, lat_indices, lon_indices
+
+
+
+
