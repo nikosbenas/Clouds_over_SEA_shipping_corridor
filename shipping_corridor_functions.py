@@ -8,6 +8,8 @@ import numpy as np
 import sys
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 from claas3_dictionaries import varUnits
+import cartopy.crs as ccrs
+import cartopy.feature as cf
 
 
 def find_bounding_box_indices(bounding_box, lat_array, lon_array):
@@ -102,7 +104,7 @@ def read_monthly_time_series(var, data_folder, start_year, end_year, istart, ien
 
                 if all_data[var].ndim == 3: # e.g. CLAAS data
 
-                    var_data.append(all_data[var][0, istart:iend, jstart:jend])
+                    var_data.append(np.flipud(all_data[var][0, istart:iend, jstart:jend]))
 
                 # Read fill value once
                 if 'fill_value' not in locals():
@@ -114,6 +116,19 @@ def read_monthly_time_series(var, data_folder, start_year, end_year, istart, ien
 
     # Replace fill value with nan
     var_data[var_data == fill_value] = np.nan
+
+    # Adjust units of some variables
+    if 'cre' in var:
+        
+        var_data = var_data * 1e+6 # convert m to micron
+        
+    if 'wp' in var: # LWP or IWP
+    
+        var_data = var_data * 1000 # convert kg/m2 to g/m2
+        
+    if 'cdnc' in var:
+        
+        var_data = var_data * 1e-6 # convert m-3 to cm-3
 
     return var_data
 
@@ -416,6 +431,231 @@ def find_line_perpendicular_to_corridor(c, sc_centlat, sc_centlon, angle_radians
 
     return distances, lat_indices, lon_indices
 
+
+def center_shipping_corridor_perpendicular_lines(perpendicular_lines_lat_indices, perpendicular_lines_lon_indices, perpendicular_lines_distances):
+
+    '''
+    Description:
+        This function is designed to center shipping corridor perpendicular lines by padding them with NaN values. It takes lists of 1D arrays of latitude indices, longitude indices, and distances of grid cells lying along perpendicular lines from the corridor center as input. The function calculates the maximum index of the "zero" distance point in the lists and pads each list with NaN values to center them around this maximum index.
+
+    Inputs:
+        - perpendicular_lines_lat_indices: A list containing 1D arrays of latitude indices of grid cells lying along perpendicular lines from the corridor center (each 1D array corresponds to one line).
+        - perpendicular_lines_lon_indices: A list containing 1D arrays of longitude indices of grid cells lying along perpendicular lines from the corridor center.
+        - perpendicular_lines_distances: A list containing distances (in kilometers) of grid cells lying along perpendicular lines from the corridor center.
+
+    Outputs:
+        - centered_lat_indices: A 2D NumPy array containing centered latitude indices of grid cells, padded with NaN values.
+        - centered_lon_indices: A 2D NumPy array containing centered longitude indices of grid cells, padded with NaN values.
+        - centered_distances: A 2D NumPy array containing centered distances (in kilometers) of grid cells, padded with NaN values.
+    '''
+
+    # Initialize lists to store centered data
+    zero_indices = []
+    zero_indices_reverse = []
+    centered_distances = []
+    centered_lat_indices = []
+    centered_lon_indices = []
+
+    # Center each list by adding NaN values
+    for i in range(len(perpendicular_lines_distances)):
+        
+        zero_indices.append(perpendicular_lines_distances[i].index(0))
+        zero_indices_reverse.append(len(perpendicular_lines_distances[i]) -
+                                    perpendicular_lines_distances[i].index(0))
+        
+    max_zero_ind = max(zero_indices)
+    max_zero_ind_rev = max(zero_indices_reverse)
+        
+    for i in range(len(perpendicular_lines_distances)):
+        
+        zero_ind = perpendicular_lines_distances[i].index(0)
+        zero_ind_rev = len(perpendicular_lines_distances[i]) - perpendicular_lines_distances[i].index(0)
+        
+        pad_left = max_zero_ind - zero_ind
+        pad_right = max_zero_ind_rev - zero_ind_rev
+        
+        centered_dist = np.concatenate([np.nan*np.ones(pad_left), perpendicular_lines_distances[i], 
+                                       np.nan*np.ones(pad_right)])
+        centered_distances.append(centered_dist)
+        
+        centered_lat_ind = np.concatenate(
+            [np.nan*np.ones(pad_left), perpendicular_lines_lat_indices[i], 
+             np.nan*np.ones(pad_right)])
+        centered_lat_indices.append(centered_lat_ind)
+        
+        centered_lon_ind = np.concatenate(
+            [np.nan*np.ones(pad_left), perpendicular_lines_lon_indices[i], 
+             np.nan*np.ones(pad_right)])
+        centered_lon_indices.append(centered_lon_ind)
+        
+        
+    return (np.vstack(centered_lat_indices), np.vstack(centered_lon_indices), 
+            np.vstack(centered_distances))
+
+
+def center_data_along_corridor(data_array, centered_lat_indices, centered_lon_indices):
+
+    '''
+    Description:
+        This function centers a given 2D data array along a shipping corridor defined by latitude and longitude indices. It extracts the data values corresponding to the centered latitude and longitude indices from the provided data array, filling invalid indices with NaN values.
+
+    Inputs:
+        - data_array: A 2D NumPy array containing the original data.
+        - centered_lat_indices: A 2D NumPy array containing centered latitude indices of grid cells along the shipping corridor.
+        - centered_lon_indices: A 2D NumPy array containing centered longitude indices of grid cells along the shipping corridor.
+
+    Outputs:
+        - centered_data: A 2D NumPy array containing the data values centered along the shipping corridor. Invalid indices are filled with NaN values.
+    '''
+    
+    valid_indices = ~np.isnan(centered_lat_indices) & ~np.isnan(centered_lon_indices)
+    
+    centered_data = np.full_like(centered_lat_indices, np.nan)
+    
+    centered_data[valid_indices] = data_array[
+        centered_lat_indices[valid_indices].astype(int), 
+        centered_lon_indices[valid_indices].astype(int)]
+
+    return centered_data
+
+
+def make_map(data_array, grid_extent, title, units, minval, maxval, plot_extent, cmap, ext, filename, saveplot):
+    
+    '''
+    Description:
+        This function generates a map plot using the provided array data, with customizable settings such as title, colorbar, and extent. It utilizes Matplotlib and Cartopy for plotting geographical data.
+
+    Inputs:
+        - data_array: A 2D NumPy array containing the data to be plotted on the map.
+        - grid_extent: A list specifying the extent of the grid (format: [lon_min, lon_max, lat_min, lat_max]).
+        - title: A string representing the title of the plot.
+        - units: A string indicating the units of the data.
+        - minval: Minimum value of the color scale.
+        - maxval: Maximum value of the color scale.
+        - plot_extent: A list specifying the geographical extent of the plot (format: [lon_min, lon_max, lat_min, lat_max]).
+        - cmap: A Matplotlib colormap object representing the colormap to be used for the plot.
+        - ext: A string indicating the extension style for the colorbar (e.g., 'both', 'min', 'max', 'neither').
+        - filename: A string specifying the filename for saving the plot.
+        - saveplot: A boolean indicating whether to save the plot as an image file.
+
+    Outputs:
+        - None
+    '''
+
+    fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
+
+    ax.set_title(title)
+    im = ax.imshow(data_array, vmin=minval, vmax=maxval, cmap=cmap,
+                   extent=grid_extent, transform=ccrs.PlateCarree())
+    ax.add_feature(cf.COASTLINE)
+    ax.set_extent(plot_extent)
+    
+    # Add a colorbar
+    # cbar_ax = fig.add_axes([0.95, 0.35, 0.03, 0.3])
+    cbar = fig.colorbar(im, shrink = 0.6, extend = ext)#, cax=cbar_ax)
+    cbar.set_label('[' + units + ']')
+    
+    # Draw rectangle
+    # rect = patches.Rectangle((grid_extent[0], grid_extent[2]),
+    #                           grid_extent[1] - grid_extent[0],
+    #                           grid_extent[3] - grid_extent[2],
+    #                           linewidth=1, edgecolor='orange', facecolor='none')
+    
+    # rect = patches.Rectangle((-10, -20),
+    #                           10 - -10,
+    #                           -10 - -20,
+    #                           linewidth=1, edgecolor='orange', facecolor='none')
+    # ax.add_patch(rect)
+    
+    plt.tight_layout()
+    
+    if saveplot:
+        print(f'Save figure: {filename}')
+        plt.savefig(filename, bbox_inches='tight', dpi=300)
+        
+    plt.show()
+    plt.close()
+
+
+def plot_profile_and_NoShip_line(profile_data, profile_NoShip, units, distance, zero_index, title, outfile, saveplot):
+    
+    fig = plt.figure()
+    plt.plot(distance, profile_data, label = 'SC incl.')
+    plt.plot(distance, profile_NoShip, linestyle = ':', color = 'k', label = 'SC excl.')
+        
+    # plt.plot(distance, np.full_like(distance, 0), linestyle = ':', color='grey')
+        
+    plt.axvline(x = distance[zero_index], linestyle = ':', color='grey')
+    plt.ylabel('[' + units + ']')
+    plt.xlabel('Distance from corridor center, W to E [km]')
+    plt.title(title)
+    plt.legend()
+        
+    if saveplot:
+        fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+
+
+def calculate_NoShip_line(distance, profile_data, half_range):
+    
+    '''
+    Description:
+        This function calculates the NoShip line based on the shipping corridor center and a specified half range. It determines a line equation in the form y = ax + b, where 'y' represents the NoShip data, 'x' represents the distance from the center, and 'a' and 'b' are coefficients. the NoShip data are calculated based on linear interpolation. 
+
+    Inputs:
+        - distance: A 1D NumPy array representing the distance from the center for each data point.
+        - profile_data: A 1D NumPy array containing the original profile data.
+        - half_range: The half range in kilometers from the corridor center to define the two interpolation points.
+
+    Outputs:
+        - NoShip_line: A 1D NumPy array representing the linearly interpolated NoShip line values at each distance point.                            
+    '''
+    
+    # Find indices of grid cells defining the range -half_range km to 
+    # half_range km from center.
+    iw = np.argmin(abs(-half_range - distance)) # index west
+    ie = np.argmin(abs(half_range - distance)) # index east
+
+    # Find a and b in line y = ax + b
+    x1 = distance[iw]
+    x2 = distance[ie]
+    y1 = profile_data[iw]
+    y2 = profile_data[ie]
+
+    a = (y2 - y1) / (x2 - x1)
+    b = y2 - a*x2
+
+    # Find line values at distance points
+    return a * distance + b
+
+
+def plot_average_and_uncertainty_maps(var, start_year, end_year, plot_extent, grid_extent, claas_data_mean, claas_data_unc_mean, create_average_maps):
+
+    '''
+    Description:
+        This function generates and saves map plots for the average and uncertainty of a given variable over a specified time period. It utilizes the make_map function to create the plots with customizable settings such as title, color scale, and extent.
+
+    Inputs:
+        - var: A string representing the variable name.
+        - start_year: Integer specifying the start year of the time period.
+        - end_year: Integer specifying the end year of the time period.
+        - plot_extent: A list specifying the geographical extent of the plot (format: [lon_min, lon_max, lat_min, lat_max]).
+        - grid_extent: A list or tuple specifying the extent of the grid (format: [x_min, x_max, y_min, y_max]).
+        - claas_data_mean: A 2D NumPy array containing the average data values.
+        - claas_data_unc_mean: A 2D NumPy array containing the average uncertainty data values.
+        - create_average_maps: Boolean indicating whether to create average maps.
+
+    Outputs:
+        - None
+    '''
+
+    if create_average_maps:
+        outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average.png'
+
+        make_map(claas_data_mean, grid_extent, var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average', varUnits[var], np.nanmin(claas_data_mean), np.nanmax(claas_data_mean), plot_extent, 'viridis', 'neither', outfile, saveplot = True)
+
+        outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_unc_average.png'
+
+        make_map(claas_data_unc_mean, grid_extent, var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average uncertainty', varUnits[var], np.nanmin(claas_data_unc_mean), np.nanmax(claas_data_unc_mean), plot_extent, 'viridis', 'neither', outfile, saveplot = True)
 
 
 
