@@ -1,3 +1,4 @@
+import copy
 import glob
 import os
 import geopy.distance as gd
@@ -628,7 +629,7 @@ def calculate_NoShip_line(distance, profile_data, half_range):
     return a * distance + b
 
 
-def plot_average_and_uncertainty_maps(var, start_year, end_year, plot_extent, grid_extent, claas_data_mean, claas_data_unc_mean, create_average_maps):
+def plot_average_and_uncertainty_maps(var, start_year, end_year, plot_extent, grid_extent, data_array, unc_array, create_average_maps):
 
     '''
     Description:
@@ -640,8 +641,8 @@ def plot_average_and_uncertainty_maps(var, start_year, end_year, plot_extent, gr
         - end_year: Integer specifying the end year of the time period.
         - plot_extent: A list specifying the geographical extent of the plot (format: [lon_min, lon_max, lat_min, lat_max]).
         - grid_extent: A list or tuple specifying the extent of the grid (format: [x_min, x_max, y_min, y_max]).
-        - claas_data_mean: A 2D NumPy array containing the average data values.
-        - claas_data_unc_mean: A 2D NumPy array containing the average uncertainty data values.
+        - data_array: A 2D NumPy array containing the data values.
+        - unc_array: A 2D NumPy array containing the average uncertainty data values.
         - create_average_maps: Boolean indicating whether to create average maps.
 
     Outputs:
@@ -651,11 +652,75 @@ def plot_average_and_uncertainty_maps(var, start_year, end_year, plot_extent, gr
     if create_average_maps:
         outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average.png'
 
-        make_map(claas_data_mean, grid_extent, var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average', varUnits[var], np.nanmin(claas_data_mean), np.nanmax(claas_data_mean), plot_extent, 'viridis', 'neither', outfile, saveplot = True)
+        make_map(data_array, grid_extent, var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average', varUnits[var], np.nanmin(data_array), np.nanmax(data_array), plot_extent, 'viridis', 'neither', outfile, saveplot = True)
 
         outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_unc_average.png'
 
-        make_map(claas_data_unc_mean, grid_extent, var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average uncertainty', varUnits[var], np.nanmin(claas_data_unc_mean), np.nanmax(claas_data_unc_mean), plot_extent, 'viridis', 'neither', outfile, saveplot = True)
+        make_map(unc_array, grid_extent, var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average uncertainty', varUnits[var], np.nanmin(unc_array), np.nanmax(unc_array), plot_extent, 'viridis', 'neither', outfile, saveplot = True)
+
+
+def calculate_across_corridor_average_and_uncertainty(centered_lat_indices, centered_lon_indices, data_array, unc_array):
+
+    '''
+    Description:
+        This function calculates the across-corridor average and uncertainty from centered data along the shipping corridor. It computes the average and uncertainty of the provided data arrays along the corridor.
+
+    Inputs:
+        - centered_lat_indices: A 2D NumPy array containing centered latitude indices along the shipping corridor.
+        - centered_lon_indices: A 2D NumPy array containing centered longitude indices along the shipping corridor.
+        - data_array: A 2D NumPy array containing "map" data values.
+        - unc_array: A 2D NumPy array containing "map" uncertainty data values.
+
+    Outputs:
+        - mean_centered_data: A 1D NumPy array representing the across-corridor average of the data.
+        - unc_mean_centered_data: A 1D NumPy array representing the across-corridor average of the uncertainty data.
+    '''
+    
+    mean_centered_data = center_data_along_corridor(data_array, centered_lat_indices, centered_lon_indices)
+    unc_mean_centered_data = center_data_along_corridor(unc_array, centered_lat_indices, centered_lon_indices)
+
+    mean_centered_data = np.nanmean(mean_centered_data, axis = 0)
+    unc_mean_centered_data = np.nanmean(unc_mean_centered_data, axis = 0)
+
+    mean_centered_N = (np.nansum(mean_centered_data, axis = 0) /mean_centered_data)
+    return mean_centered_data,unc_mean_centered_data
+
+
+def create_short_across_corridor_profiles(limit, avg_distances, mean_centered_avg, unc_mean_centered_avg, mean_centered_avg_NoShip, unc_mean_centered_avg_NoShip):
+
+    '''
+    Description:
+        This function creates short across-corridor profiles by limiting the distance range based on a specified threshold. It selectively removes data points beyond the limit from the input profiles.
+
+    Inputs:
+        - limit: A float representing the distance threshold beyond which data points are removed.
+        - avg_distances: A 1D NumPy array representing distances from the corridor center.
+        - mean_centered_avg: A 1D NumPy array representing the across-corridor average of the mean data.
+        - unc_mean_centered_avg: A 1D NumPy array representing the across-corridor average of the uncertainty data.
+        - mean_centered_avg_NoShip: A 1D NumPy array representing the across-corridor data for the NoShip line.
+        - unc_mean_centered_avg_NoShip: A 1D NumPy array representing the across-corridor uncertainty for the NoShip line data.
+
+    Outputs:
+        - avg_distances_short: A 1D NumPy array representing the shortened distances from the corridor center.
+        - mean_centered_avg_short: A 1D NumPy array representing the shortened across-corridor average of the mean data.
+        - mean_centered_avg_NoShip_short: A 1D NumPy array representing the shortened across-corridor data for the NoShip line.
+        - unc_mean_centered_avg_short: A 1D NumPy array representing the shortened across-corridor average of the uncertainty data.
+        - unc_mean_centered_avg_NoShip_short: A 1D NumPy array representing the shortened across-corridor uncertainty data for the NoShip line.
+    '''
+
+    avg_distances_short = copy.deepcopy(avg_distances)
+    mean_centered_avg_short = copy.deepcopy(mean_centered_avg)
+    mean_centered_avg_NoShip_short = copy.deepcopy(mean_centered_avg_NoShip)
+    unc_mean_centered_avg_short = copy.deepcopy(unc_mean_centered_avg)
+    unc_mean_centered_avg_NoShip_short = copy.deepcopy(unc_mean_centered_avg_NoShip)
+
+    mean_centered_avg_short[abs(avg_distances) > limit] = np.nan
+    mean_centered_avg_NoShip_short[abs(avg_distances) > limit] = np.nan
+    unc_mean_centered_avg_short[abs(avg_distances) > limit] = np.nan
+    unc_mean_centered_avg_NoShip_short[abs(avg_distances) > limit] = np.nan
+    avg_distances_short[abs(avg_distances) > limit] = np.nan
+
+    return avg_distances_short,mean_centered_avg_short,mean_centered_avg_NoShip_short,unc_mean_centered_avg_short,unc_mean_centered_avg_NoShip_short
 
 
 
