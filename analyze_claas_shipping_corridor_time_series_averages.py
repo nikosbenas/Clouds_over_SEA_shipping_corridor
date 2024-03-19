@@ -6,7 +6,7 @@ import sys
 import numpy as np
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 from claas3_dictionaries import FileNameStart
-from shipping_corridor_functions import find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, read_lat_lon_arrays, read_monthly_time_series
+from shipping_corridor_functions import calculate_NoShip_line, calculate_across_corridor_average_and_uncertainty, center_shipping_corridor_perpendicular_lines, create_mean_profile_plots, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, plot_average_and_uncertainty_maps, read_lat_lon_arrays, read_monthly_time_series
 
 
 def process_index(c):
@@ -58,7 +58,7 @@ dates = [datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d')
          for year in range(start_year, end_year + 1) for month in range(1, 13)]
 
 # =============================================================================
-# Process CLAAS-3 data
+# Read CLAAS-3 data
 # =============================================================================
 
 # Read CLAAS lat, lon once
@@ -72,8 +72,9 @@ istart, iend, jstart, jend = find_bounding_box_indices(bounding_box, lat_claas, 
 lat_claas = lat_claas[istart:iend, jstart:jend]
 lon_claas = lon_claas[istart:iend, jstart:jend]
 
-# Loop over all years and months to read MODIS data into a 3D array
+# Loop over all years and months to read CLAAS-3 data and their uncertainties into 3D arrays
 claas_data = read_monthly_time_series(var, claas_data_folder, start_year, end_year, istart, iend, jstart, jend)
+claas_data_unc = read_monthly_time_series(var + '_unc01', claas_data_folder, start_year, end_year, istart, iend, jstart, jend)
 
 # =============================================================================
 # Process Shipping Corridor data
@@ -105,5 +106,38 @@ if __name__ == "__main__":
         all_lat_indices.append(lat_indices)
         all_lon_indices.append(lon_indices)
 
+# 3. Center all perpendicular lines to the corridor center (zero distance), find average distances from center. 
+centered_lat_indices, centered_lon_indices, centered_dists = center_shipping_corridor_perpendicular_lines(all_lat_indices, all_lon_indices, all_distances)
+
+# Calculate average distances along the corridor and set "western" part to negative
+avg_distances = np.nanmean(centered_dists, axis=0)
+zero_index = np.where(avg_distances == 0)[0][0]
+avg_distances[zero_index + 1:] = -avg_distances[zero_index + 1:]
+
+# =============================================================================
+# Analysis of time series averages
+# =============================================================================
+
+# Calculate time series mean and number of months with data per grid cell
+claas_data_mean = np.nanmean(claas_data, axis = 2)
+claas_data_months = (100 * (np.nansum(claas_data, axis = 2) / claas_data_mean) / claas_data.shape[2])
+claas_data_unc_mean = np.nanmean(claas_data_unc, axis = 2)
+
+# Create maps of time series mean values and uncertainties
+create_average_maps = False
+plot_average_and_uncertainty_maps(var, start_year, end_year, plot_extent, grid_extent, claas_data_mean, claas_data_unc_mean, create_average_maps)   
+
+# Find data mean values centered along the shipping corridor
+mean_centered_avg, unc_mean_centered_avg = calculate_across_corridor_average_and_uncertainty(centered_lat_indices, centered_lon_indices, claas_data_mean, claas_data_unc_mean)    
+
+# Calculate straight line to imitate absence of the shipping corridor
+mean_centered_avg_NoShip = calculate_NoShip_line(avg_distances, mean_centered_avg, 250)
+unc_mean_centered_avg_NoShip = calculate_NoShip_line(avg_distances, unc_mean_centered_avg, 250)
+
+# Create shorter profile plots mean values and uncertainties, centered on the corridor
+avg_distances_short, mean_centered_avg_short, mean_centered_avg_NoShip_short, unc_mean_centered_avg_short, unc_mean_centered_avg_NoShip_short = create_short_across_corridor_profiles(350, avg_distances, mean_centered_avg, unc_mean_centered_avg, mean_centered_avg_NoShip, unc_mean_centered_avg_NoShip)
+
+create_profile_plots = True
+create_mean_profile_plots(var, start_year, end_year, avg_distances, zero_index, mean_centered_avg, unc_mean_centered_avg, mean_centered_avg_NoShip, unc_mean_centered_avg_NoShip, avg_distances_short, mean_centered_avg_short, mean_centered_avg_NoShip_short, unc_mean_centered_avg_short, unc_mean_centered_avg_NoShip_short, create_profile_plots)
 
 print('check')
