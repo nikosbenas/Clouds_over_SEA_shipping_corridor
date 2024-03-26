@@ -11,6 +11,7 @@ sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 from claas3_dictionaries import varUnits
 import cartopy.crs as ccrs
 import cartopy.feature as cf
+from scipy.interpolate import interp1d
 
 
 def find_bounding_box_indices(bounding_box, lat_array, lon_array):
@@ -656,6 +657,43 @@ def calculate_NoShip_line(distance, profile_data, half_range):
 
     # Find line values at distance points
     return a * distance + b
+
+
+def calculate_NoShip_curve(distance, profile_data, half_range):
+    
+    '''
+    Description:
+        This function calculates the NoShip curve using a cubic polynomial fit. The cubic fit uses only data within a range of 350 km to half_range km from both sides of the corridor center.
+
+    Inputs:
+        - distance: A 1D NumPy array representing the distance from the corridor center for each data point.
+        - profile_data: A 1D NumPy array containing the original profile data.
+        - half_range: The half range in kilometers from the corridor center to define the corridor-affected range.
+
+    Outputs:
+        - y_interpolated: A 1D NumPy array representing the interpolated NoShip curve values at each distance point.                            
+    '''
+
+    # Find indices of grid cells defining the range -half_range km to 
+    # half_range km from center.
+    iw = np.argmin(abs(-half_range - distance)) # index west
+    ie = np.argmin(abs(half_range - distance)) # index east
+
+    # For the cubic fit, onsider only data between 350 km and 250 km from both sides of the corridor center
+    iw_end = np.argmin(abs(-350 - distance)) # index west
+    ie_start = np.argmin(abs(350 - distance)) # index east
+
+    x_with_gap = np.concatenate((distance[ie_start:ie], distance[iw:iw_end]))
+    y_with_gap = np.concatenate((profile_data[ie_start:ie], profile_data[iw:iw_end]))
+
+    idx = np.isfinite(x_with_gap) & np.isfinite(y_with_gap)
+
+    coefficients = np.polyfit(x_with_gap[idx], y_with_gap[idx], 3)
+    a, b, c, d = coefficients
+
+    y_interpolated = a*distance**3 + b*distance**2 + c*distance + d
+
+    return y_interpolated
 
 
 def calculate_across_corridor_average_and_std(centered_lat_indices, centered_lon_indices, data_array):
