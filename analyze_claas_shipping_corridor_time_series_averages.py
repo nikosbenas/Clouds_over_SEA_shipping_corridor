@@ -29,7 +29,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cfc'
+var = 'cdnc_liq'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
 
 # Uncertainty correlation coefficient for monthly averages
@@ -121,11 +121,11 @@ avg_distances[zero_index + 1:] = -avg_distances[zero_index + 1:]
 # Calculate time series mean and number of months with data per grid cell
 time_series_mean = np.nanmean(data, axis = 2)
 time_series_std = np.nanstd(data, axis = 2)
-time_series_Nmonths = (100 * (np.nansum(data, axis = 2) / time_series_mean) / data.shape[2])
+time_series_Nmonths = np.round(np.nansum(data, axis = 2) / time_series_mean).astype(int)
 time_series_unc_mean = np.sqrt(((1 / time_series_Nmonths) * (time_series_std**2)) + unc_coeff * (np.nanmean(data_unc)**2))
 
 # Create maps of time series mean values and uncertainties
-create_map = False
+create_map = True
 if create_map:
 
     # Of time series mean
