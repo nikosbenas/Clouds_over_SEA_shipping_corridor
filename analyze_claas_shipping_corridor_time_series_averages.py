@@ -122,10 +122,17 @@ avg_distances[zero_index + 1:] = -avg_distances[zero_index + 1:]
 # =============================================================================
 
 # Calculate time series mean and number of months with data per grid cell
+<<<<<<< Updated upstream
 time_series['mean'] = np.nanmean(time_series['data'], axis = 2)
 time_series['std'] = np.nanstd(time_series['data'], axis = 2)
 time_series['Nmonths'] = np.round(np.nansum(time_series['data'], axis = 2) / time_series['mean']).astype(int)
 time_series['unc_mean'] = np.sqrt(((1 / time_series['Nmonths']) * (time_series['std']**2)) + unc_coeff * (np.nanmean(time_series['unc'])**2))
+=======
+time_series_mean = np.nanmean(data, axis = 2)
+time_series_std = np.nanstd(data, axis = 2)
+time_series_Nmonths = np.round(np.nansum(data, axis = 2) / time_series_mean).astype(int)
+time_series_unc_mean = np.sqrt(((1 / time_series_Nmonths) * (time_series_std**2)) + unc_coeff * (np.nanmean(data_unc, axis = 2)**2))
+>>>>>>> Stashed changes
 
 # Create maps of time series mean values and uncertainties
 create_map = True
