@@ -148,8 +148,11 @@ def calculate_area_weighted_average(array, lat_array):
 
     Outputs:
         - avg: (float or 1D NumPy array) Area-weighted average of the input array over latitude
+        - std_dev: (float or 1D NumPy array) Area-weighted standard deviation of the input array over latitude
     '''
     
+    weights = np.cos(np.radians(lat_array))
+
     if array.ndim == 2:
 
         if np.all(np.isnan(array)):
@@ -158,7 +161,11 @@ def calculate_area_weighted_average(array, lat_array):
         
         else:
 
-            return np.nansum(np.cos(np.radians(lat_array)) * array) / np.nansum(np.cos(np.radians(lat_array)))
+            avg = np.nansum(weights * array) / np.nansum(weights)
+
+            std_dev = np.sqrt(np.nansum(weights * (array - avg)**2) / np.nansum(weights))
+
+            return avg, std_dev
         
     elif array.ndim == 3:
 
@@ -170,7 +177,16 @@ def calculate_area_weighted_average(array, lat_array):
 
             lat_array_tiled = np.tile(lat_array[:,:,np.newaxis], array.shape[2])
 
-            return np.nansum(np.cos(np.radians(lat_array_tiled)) * array, axis=(0, 1)) / np.nansum(np.cos(np.radians(lat_array)), axis=(0, 1))
+            weights_3D = np.cos(np.radians(lat_array_tiled))
+
+            avg = np.nansum(weights_3D * array, axis=(0, 1)) / np.nansum(weights, axis=(0, 1))
+
+            std_dev = np.zeros(array.shape[2])
+            for m in range(array.shape[2]):
+
+                std_dev[m] = np.sqrt(np.nansum(weights * (array[:,:,m] - avg[m])**2) / np.nansum(weights))
+        
+            return avg, std_dev
         
     else:
 
