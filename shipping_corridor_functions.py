@@ -744,4 +744,35 @@ def create_short_across_corridor_profiles(limit, avg_distances, data_long):
     return data_short
 
 
+def center_along_corridor_data_and_uncertainties_per_month(centered, mean_per_month, unc_per_month):
+
+    '''
+    Description:
+        - This function centers monthly mean data and uncertainties along the shipping corridor. The data are in 3D arrays, with the third dimension denoting the month (1-12).
+
+    Inputs:
+        - centered (dict): A dictionary containing centered latitude and longitude indices.
+        - mean_per_month: A 3D NumPy array containing time series mean data per month.
+        - unc_per_month: A 3D NumPy array containing time series mean uncertainty data per month.
+
+    Outputs:
+        - centered['mean_per_month']: A 3D NumPy array representing the centered along the shipping corridor mean data per month.
+        - centered['unc_per_month']: A 3D NumPy array representing the centered monthly along the shipping corridor uncertainty data per month.
+    '''
+
+    centered_mean_per_month_list = []
+    centered_unc_per_month_list = []
+
+    for m in range(12):
+
+        centered_mean_per_month_list.append(center_data_along_corridor(mean_per_month[: ,:, m], centered['latitude_indices'], centered['longitude_indices']))
+
+        centered_unc_per_month_list.append(center_data_along_corridor(unc_per_month[: ,:, m], centered['latitude_indices'], centered['longitude_indices']))
+
+    centered['mean_per_month'] = np.stack(centered_mean_per_month_list, axis = 2)
+    centered['unc_per_month'] = np.stack(centered_unc_per_month_list, axis = 2)
+
+    return centered['mean_per_month'], centered['unc_per_month']
+
+
 
