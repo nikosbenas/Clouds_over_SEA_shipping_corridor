@@ -72,9 +72,12 @@ istart, iend, jstart, jend = find_bounding_box_indices(bounding_box, lat_claas, 
 lat_claas = lat_claas[istart:iend, jstart:jend]
 lon_claas = lon_claas[istart:iend, jstart:jend]
 
-# Loop over all years and months to read CLAAS-3 data and their uncertainties into 3D arrays
-data = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend)
-data_unc = read_monthly_time_series(var + '_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend)
+# Define a time series dictionary to include data, mean, std, uncertainty etc.
+time_series = {}
+
+# Loop over all years and months to read CLAAS-3 data and their uncertainties into 3D arrays and include them in the time series dictionary
+time_series['data'] = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend)
+time_series['unc'] = read_monthly_time_series(var + '_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend)
 
 # =============================================================================
 # Process Shipping Corridor data
@@ -119,23 +122,23 @@ avg_distances[zero_index + 1:] = -avg_distances[zero_index + 1:]
 # =============================================================================
 
 # Calculate time series mean and number of months with data per grid cell
-time_series_mean = np.nanmean(data, axis = 2)
-time_series_std = np.nanstd(data, axis = 2)
-time_series_Nmonths = np.round(np.nansum(data, axis = 2) / time_series_mean).astype(int)
-time_series_unc_mean = np.sqrt(((1 / time_series_Nmonths) * (time_series_std**2)) + unc_coeff * (np.nanmean(data_unc)**2))
+time_series['mean'] = np.nanmean(time_series['data'], axis = 2)
+time_series['std'] = np.nanstd(time_series['data'], axis = 2)
+time_series['Nmonths'] = np.round(np.nansum(time_series['data'], axis = 2) / time_series['mean']).astype(int)
+time_series['unc_mean'] = np.sqrt(((1 / time_series['Nmonths']) * (time_series['std']**2)) + unc_coeff * (np.nanmean(time_series['unc'])**2))
 
 # Create maps of time series mean values and uncertainties
 create_map = True
 if create_map:
 
     # Of time series mean
-    make_map(var, time_series_mean, var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average', np.nanmin(time_series_mean), np.nanmax(time_series_mean), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average.png', saveplot = True)
+    make_map(var, time_series['mean'], var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average', np.nanmin(time_series['mean']), np.nanmax(time_series['mean']), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average.png', saveplot = True)
 
     # Of time series mean uncertainties
-    make_map(var, time_series_unc_mean, var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average uncertainty', np.nanmin(time_series_unc_mean), np.nanmax(time_series_unc_mean), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_uncertainty.png', saveplot = True)
+    make_map(var, time_series['unc_mean'], var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average uncertainty', np.nanmin(time_series['unc_mean']), np.nanmax(time_series['unc_mean']), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_uncertainty.png', saveplot = True)
 
 # Find data mean values centered along the shipping corridor
-centered_avg, centered_std, centered_N = calculate_across_corridor_average_and_std(centered_lat_indices, centered_lon_indices, time_series_mean)  
+centered_avg, centered_std, centered_N = calculate_across_corridor_average_and_std(centered_lat_indices, centered_lon_indices, time_series['mean'])  
 
 # Calculate uncertainty of centered data
 centered_unc = center_data_along_corridor(time_series_unc_mean, centered_lat_indices, centered_lon_indices)
