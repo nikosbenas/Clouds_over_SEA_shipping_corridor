@@ -575,7 +575,7 @@ def make_map(var, data_array, title, minval, maxval, grid_extent, plot_extent, c
         print(f'Save figure: {filename}')
         plt.savefig(filename, bbox_inches='tight', dpi=300)
         
-    plt.show()
+    # plt.show()
     plt.close()
 
 
