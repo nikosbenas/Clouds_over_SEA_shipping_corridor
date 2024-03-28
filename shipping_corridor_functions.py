@@ -291,6 +291,26 @@ def plot_two_time_series(dates, var_name_1, array_1, var_name_2, array_2, title,
         fig.savefig(output_file, dpi = 300, bbox_inches = 'tight')
 
 
+def plot_intra_annual_variation(var, array, unc, outfile, plot_std_band, saveplot):
+
+    fig = plt.figure()
+
+    plt.plot(np.arange(1,13), array, color = 'k')
+
+    # Plot standard deviation as a light grey band around the main data line
+    if plot_std_band:
+
+        plt.fill_between(np.arange(1,13), array - unc, array + unc, color = 'lightgrey', alpha = 0.5)
+
+
+    plt.ylabel('[' + varUnits[var] + ']')
+    plt.xlabel('Month')
+    plt.title('Area-weighted average ' + var.upper())
+    
+    if saveplot:
+        
+        fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+
 def calculate_running_mean(array, window_size):
 
     '''
@@ -789,6 +809,33 @@ def center_along_corridor_data_and_uncertainties_per_month(centered, mean_per_mo
     centered['unc_per_month'] = np.stack(centered_unc_per_month_list, axis = 2)
 
     return centered['mean_per_month'], centered['unc_per_month']
+
+
+def plot_12_monthly_profiles(var, centered, month_string, avg_distances, zero_index, avg_distances_short, outfile, saveplot):
+    fig, ax = plt.subplots()
+
+    # Define the tab20 colors
+    tab20_colors = plt.cm.tab20(np.linspace(0, 1, 20))
+
+    # Use the first 12 colors for the plot
+    colors = tab20_colors[:12]
+
+    for i in range(12):
+        label = month_string[i + 1]
+        mean = centered['monthly_profile_means_short'][:, i]
+        unc = centered['monthly_profile_unc_short'][:, i]
+        ax.plot(avg_distances_short, mean, label = label, color = colors[i])
+        ax.fill_between(avg_distances_short, mean - unc, mean + unc, color = colors[i], alpha = 0.3)
+
+    plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.set_xlabel('Distance from corridor center, W to E [km]')
+    ax.set_ylabel('[' + varUnits[var] + ']')
+    ax.set_title(var.upper() + ' across shipping corridor, monthly average')
+
+    if saveplot:
+
+        fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
 
 
 
