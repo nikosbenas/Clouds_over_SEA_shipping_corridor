@@ -811,7 +811,7 @@ def center_along_corridor_data_and_uncertainties_per_month(centered, mean_per_mo
     return centered['mean_per_month'], centered['unc_per_month']
 
 
-def plot_12_monthly_profiles(var, centered, month_string, avg_distances, zero_index, avg_distances_short, outfile, saveplot):
+def plot_12_monthly_profiles(var, month_string, title, profiles, unc_profiles, avg_distances, zero_index, avg_distances_short, outfile, plot_unc_bands, plot_zero_line, saveplot):
     fig, ax = plt.subplots()
 
     # Define the tab20 colors
@@ -822,16 +822,20 @@ def plot_12_monthly_profiles(var, centered, month_string, avg_distances, zero_in
 
     for i in range(12):
         label = month_string[i + 1]
-        mean = centered['monthly_profile_means_short'][:, i]
-        unc = centered['monthly_profile_unc_short'][:, i]
+        mean = profiles[:, i]
         ax.plot(avg_distances_short, mean, label = label, color = colors[i])
-        ax.fill_between(avg_distances_short, mean - unc, mean + unc, color = colors[i], alpha = 0.3)
+        if plot_unc_bands:
+            unc = unc_profiles[:, i]
+            ax.fill_between(avg_distances_short, mean - unc, mean + unc, color = colors[i], alpha = 0.3, linewidth = 0)
+
+    if plot_zero_line:
+        ax.plot(avg_distances_short, mean - mean, color = 'grey', linestyle = ':')
 
     plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax.set_xlabel('Distance from corridor center, W to E [km]')
     ax.set_ylabel('[' + varUnits[var] + ']')
-    ax.set_title(var.upper() + ' across shipping corridor, monthly average')
+    ax.set_title(title)
 
     if saveplot:
 
