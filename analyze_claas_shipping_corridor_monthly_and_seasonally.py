@@ -29,7 +29,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cdnc_liq'
+var = 'cfc'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
 
 # Uncertainty correlation coefficient for monthly averages
@@ -94,7 +94,10 @@ lon_claas = lon_claas[istart:iend, jstart:jend]
 
 # Loop over all years and months to read CLAAS-3 data and their uncertainties into 3D arrays
 data = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend)
-data_unc = read_monthly_time_series(var + '_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend)
+if var == 'cfc_day':
+    data_unc = read_monthly_time_series('cfc_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend)
+else:
+    data_unc = read_monthly_time_series(var + '_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend)
 
 # =============================================================================
 # Process Shipping Corridor data
@@ -175,8 +178,8 @@ centered['monthly_profile_means_short'] = np.swapaxes(np.array([create_short_acr
 centered['monthly_profile_unc_short'] = np.swapaxes(np.array([create_short_across_corridor_profiles(350, avg_distances, centered['monthly_profile_unc'][:, m]) for m in range(12)]), 0, 1)
 
 
-# Calculate straight line to create NoShip profiles (curve in the CFC case)
-if var == 'cfc':
+# Calculate straight line to create NoShip profiles (curve in the CFC and LWP cases)
+if ('cfc' in var) or ('lwp' in var):
     centered['monthly_NoShip_profile_means'] = np.swapaxes(np.array([calculate_NoShip_curve(avg_distances, centered['monthly_profile_means'][:, m], 250) for m in range(12)]), 0, 1)
 else:
     centered['monthly_NoShip_profile_means'] = np.swapaxes(np.array([calculate_NoShip_line(avg_distances, centered['monthly_profile_means'][:, m], 250) for m in range(12)]), 0, 1)
@@ -225,7 +228,7 @@ if plot_monthly_diff_profiles_in_one_plot:
 
 
 # Create maps of mean values and uncertainties per month
-create_monthly_maps = False
+create_monthly_maps = True
 if create_monthly_maps:
 
     for m in range(12):
@@ -241,8 +244,23 @@ if create_monthly_maps:
 plot_intra_annual= True
 if plot_intra_annual:
 
-    plot_intra_annual_variation(var, area_mean_per_month, area_unc_per_month, 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_area_weighted_intra-annual_mean_and_uncertainty.png', plot_std_band = True, saveplot = True)
+    plot_intra_annual_variation(var, area_mean_per_month, area_unc_per_month, 'Area-weighted average ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_area_weighted_intra-annual_mean_and_uncertainty.png', plot_std_band = True, plot_zero_line = False, saveplot = True)
 
-    plot_intra_annual_variation(var, corridor_effect['monthly_mean'], corridor_effect['monthly_unc'], 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_intra-annual_corridor_effect_and_uncertainty.png', plot_std_band = True, saveplot = True)
+    plot_intra_annual_variation(var, corridor_effect['monthly_mean'], corridor_effect['monthly_unc'], 'Average corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_intra-annual_corridor_effect_and_uncertainty.png', plot_std_band = True, plot_zero_line = True, saveplot = True)
+
+
+# Save seasonal averages and effects to combine variables in one plot (CDNC and CRE)
+save_intra_annual = False
+if save_intra_annual:
+
+    # Intra-annual averages and uncertainties
+    np.save('npy_arrays_for_plots/' + var.upper() + '/' + var.upper() + '_area_seasonal_mean_per_month_' + str(start_year) + '-' + str(end_year) + '.npy', area_mean_per_month.data)
+
+    np.save('npy_arrays_for_plots/' + var.upper() + '/' + var.upper() + '_area_seasonal_uncertainty_per_month_' + str(start_year) + '-' + str(end_year) + '.npy', area_unc_per_month.data)
+
+    # Intra-annual corridor effect and uncertainties
+    np.save('npy_arrays_for_plots/' + var.upper() + '/' + var.upper() + '_corridor_effect_per_month_' + str(start_year) + '-' + str(end_year) + '.npy', corridor_effect['monthly_mean'])
+
+    np.save('npy_arrays_for_plots/' + var.upper() + '/' + var.upper() + '_corridor_effect_unc_per_month_' + str(start_year) + '-' + str(end_year) + '.npy', corridor_effect['monthly_unc'])
 
 print('check')
