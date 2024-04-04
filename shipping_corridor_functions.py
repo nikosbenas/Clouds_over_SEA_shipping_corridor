@@ -231,6 +231,8 @@ def plot_time_series(dates, array, var_name, title, saveplot, output_file):
     if saveplot:
         fig.savefig(output_file, dpi = 300, bbox_inches = 'tight')
 
+    plt.close()
+
 
 def plot_two_time_series(dates, var_name_1, array_1, var_name_2, array_2, title, saveplot, output_file):
 
@@ -290,8 +292,25 @@ def plot_two_time_series(dates, var_name_1, array_1, var_name_2, array_2, title,
     if saveplot:
         fig.savefig(output_file, dpi = 300, bbox_inches = 'tight')
 
+    plt.close()
 
-def plot_intra_annual_variation(var, array, unc, outfile, plot_std_band, saveplot):
+
+def plot_intra_annual_variation(var, array, unc, title, outfile, plot_std_band, plot_zero_line, saveplot):
+
+    '''
+    Description:
+        This function generates a plot of the intra-annual (seasonal) variation of a variable throughout the year. It displays values of the variable for each month, optionally accompanied by a band representing propagated uncertainties. The plot can be saved to a file if specified.
+
+    Input:
+        - var: Variable name (e.g., 'cdnc_liq', 'cre_liq').
+        - array: 1D NumPy array containing the values of the variable for each month.
+        - unc: 1D NumPy array containing the propagated uncertainties for each month.
+        - title: a string containing the title of the plot.
+        - outfile: Filepath to save the plot.
+        - plot_std_band: Boolean indicating whether to plot uncertainty bands around the main data line.
+        - plot_zero_line: Boolean indicating whether to plot a dotted line at y = 0.
+        - saveplot: Boolean indicating whether to save the plot to outfile.
+    '''
 
     fig = plt.figure()
 
@@ -300,16 +319,76 @@ def plot_intra_annual_variation(var, array, unc, outfile, plot_std_band, saveplo
     # Plot standard deviation as a light grey band around the main data line
     if plot_std_band:
 
-        plt.fill_between(np.arange(1,13), array - unc, array + unc, color = 'lightgrey', alpha = 0.5)
+        plt.fill_between(np.arange(1,13), array - unc, array + unc, color = 'lightgrey', alpha = 0.5, linewidth = 0)
+
+    if plot_zero_line:
+
+        plt.axhline(y = 0, linestyle = ':', color = 'k')
 
 
     plt.ylabel('[' + varUnits[var] + ']')
     plt.xlabel('Month')
-    plt.title('Area-weighted average ' + var.upper())
+    plt.title(title)
     
     if saveplot:
         
         fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+
+    plt.close()
+
+
+def plot_intra_annual_variation_for_two(var1, array1, unc1, var2, array2, unc2, title, outfile, plot_std_band, plot_zero_line, saveplot):
+    '''
+    Description:
+        This function generates a plot of the intra-annual (seasonal) variation of two variables throughout the year. It displays values of the variables for each month, optionally accompanied by bands representing propagated uncertainties. The plot can be saved to a file if specified.
+
+    Input:
+        - var1: Variable name for the first y-axis (e.g., 'cdnc_liq', 'cre_liq').
+        - array1: 1D NumPy array containing the values of the first variable for each month.
+        - unc1: 1D NumPy array containing the propagated uncertainties for the first variable for each month.
+        - var2: Variable name for the second y-axis.
+        - array2: 1D NumPy array containing the values of the second variable for each month.
+        - unc2: 1D NumPy array containing the propagated uncertainties for the second variable for each month.
+        - title: a string containing the title of the plot.
+        - outfile: Filepath to save the plot.
+        - plot_std_band: Boolean indicating whether to plot uncertainty bands around the main data lines.
+        - plot_zero_line: Boolean indicating whether to plot dotted lines at y = 0 in both y axes.
+        - saveplot: Boolean indicating whether to save the plot to outfile.
+    '''
+
+    fig, ax1 = plt.subplots()
+
+    color1 = 'tab:blue'
+    ax1.set_xlabel('Month')
+    ax1.set_ylabel(var1.upper() + ' [' + varUnits[var1] + ']', color=color1)
+    ax1.plot(np.arange(1,13), array1, color=color1)
+    if plot_std_band:
+        ax1.fill_between(np.arange(1,13), array1 - unc1, array1 + unc1, color='lightblue', alpha=0.5, linewidth = 0)
+    if plot_zero_line:
+        ax1.axhline(y = 0, linestyle = ':', color=color1)
+    ax1.tick_params(axis='y', labelcolor=color1)
+
+    ax2 = ax1.twinx()  # second y-axis that shares the same x-axis
+
+    color2 = 'tab:orange'
+    ax2.set_ylabel(var2.upper() + ' [' + varUnits[var2] + ']', color=color2)
+    ax2.plot(np.arange(1,13), array2, color=color2)
+    if plot_std_band:
+        ax2.fill_between(np.arange(1,13), array2 - unc2, array2 + unc2, color='navajowhite', alpha=0.5, linewidth = 0)
+    if plot_zero_line:
+        ax2.axhline(y = 0, linestyle = ':', color=color2)
+    ax2.tick_params(axis='y', labelcolor=color2)
+
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+    plt.title(title)
+
+    if saveplot:
+        plt.savefig(outfile, dpi=300, bbox_inches='tight')
+
+    plt.close()
+
+
 
 def calculate_running_mean(array, window_size):
 
@@ -608,10 +687,9 @@ def make_map(var, data_array, title, minval, maxval, grid_extent, plot_extent, c
     plt.tight_layout()
     
     if saveplot:
-        print(f'Save figure: {filename}')
+
         plt.savefig(filename, bbox_inches='tight', dpi=300)
         
-    # plt.show()
     plt.close()
 
 
@@ -649,7 +727,7 @@ def plot_profile_and_NoShip_line(var, profile_data, profile_data_std, profile_No
 
     # Plot standard deviation as a light blue band around the main data line
     if plot_std_band:
-        plt.fill_between(distance, profile_data - profile_data_std, profile_data + profile_data_std, color='lightblue', alpha=0.5)
+        plt.fill_between(distance, profile_data - profile_data_std, profile_data + profile_data_std, color='lightblue', alpha=0.5, linewidth = 0)
 
     plt.ylabel('[' + varUnits[var] + ']')
     plt.xlabel('Distance from corridor center, W to E [km]')
@@ -660,6 +738,59 @@ def plot_profile_and_NoShip_line(var, profile_data, profile_data_std, profile_No
     if saveplot:
 
         fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+
+    plt.close()
+
+
+def plot_change_and_zero_line(var, profile_data, profile_data_std, distance, zero_index, mean_val, unc_val, title, outfile, plot_std_band, saveplot):
+
+    '''
+    Description:
+        This function generates a plot displaying profiles of changes across the shipping corridor, the zero line, and profile mean and uncertainty values, with options to include a a shaded band indicating the propagated uncertainty of the profile data.
+
+    Input:
+        - var: A string of the variable name.
+        - profile_data: A 1D NumPy array with the data profile across the corridor.
+        - profile_data_std: A 1D NumPy array with the standard deviation of the data, used to plot the shaded band.
+        - distance: A 1D NumPy array with distance values from the corridor center, used as the x-axis.
+        - zero_index: Index of the zero line on the x-axis.
+        - mean_val: Mean value to display in a text box.
+        - unc_val: Uncertainty value to display in a text box.
+        - title: A string with the title of the plot.
+        - outfile: A string with the file path for saving the plot.
+        - plot_std_band: Boolean indicating whether to plot the shaded band representing the standard deviation.
+        - saveplot: Boolean indicating whether to save the plot.
+
+    Output:
+        - If saveplot is set to True, the plot is saved to the specified file path.
+    '''
+    
+    fig = plt.figure()
+    plt.plot(distance, profile_data, label = 'SC incl.')
+        
+    plt.axvline(x = distance[zero_index], linestyle = ':', color='grey')
+
+    plt.axhline(y = 0, linestyle = ':', color='grey')
+
+    # Plot standard deviation as a light blue band around the main data line
+    if plot_std_band:
+        plt.fill_between(distance, profile_data - profile_data_std, profile_data + profile_data_std, color='lightblue', alpha=0.5, linewidth = 0)
+
+    plt.ylabel('[' + varUnits[var] + ']')
+    plt.xlabel('Distance from corridor center, W to E [km]')
+    plt.title(title)
+        
+    # Add text box with mean and uncertainty values
+    mean_str = f"{mean_val:.2f}"
+    unc_str = f"{unc_val:.2f}"
+    plt.text(0.95, 0.05, f"Mean = {mean_str} $\pm$ {unc_str} {varUnits[var]}", ha='right', va='top', transform=plt.gca().transAxes, fontsize=10)
+
+
+    if saveplot:
+
+        fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+
+    plt.close()
 
 
 def calculate_NoShip_line(distance, profile_data, half_range):
@@ -812,6 +943,29 @@ def center_along_corridor_data_and_uncertainties_per_month(centered, mean_per_mo
 
 
 def plot_12_monthly_profiles(var, month_string, title, profiles, unc_profiles, avg_distances, zero_index, avg_distances_short, outfile, plot_unc_bands, plot_zero_line, saveplot):
+
+    '''
+    Description:
+        This function generates a plot displaying 12 monthly profiles of a variable across the shipping corridor, with optional uncertainty bands and the zero line (when differences are plotted). The plot can be saved to a file if specified.
+
+    Input:
+        - var: Variable name (e.g., 'cdnc_liq', 'cre_liq').
+        - month_string: Dictionary mapping month numbers to their names.
+        - title: Title of the plot.
+        - profiles: 2D NumPy array (n, 12) containing the monthly profiles to be plotted.
+        - unc_profiles: 2D NumPy array (n, 12) containing the uncertainties of the monthly profiles.
+        - avg_distances: 1D NumPy array (n) representing distances from the corridor center.
+        - zero_index: Index of the zero value on the avg_distances array.
+        - avg_distances_short: 1D NumPy array (n) containing NaN values for distances larger than a threshold.
+        - outfile: Filepath to save the plot.
+        - plot_unc_bands: Boolean indicating whether to plot uncertainty bands.
+        - plot_zero_line: Boolean indicating whether to plot a zero line.
+        - saveplot: Boolean indicating whether to save the plot to outfile.
+
+    Output:
+        - None.
+    '''
+    
     fig, ax = plt.subplots()
 
     # Define the tab20 colors
@@ -821,14 +975,21 @@ def plot_12_monthly_profiles(var, month_string, title, profiles, unc_profiles, a
     colors = tab20_colors[:12]
 
     for i in range(12):
+
         label = month_string[i + 1]
+
         mean = profiles[:, i]
+
         ax.plot(avg_distances_short, mean, label = label, color = colors[i])
+
         if plot_unc_bands:
+
             unc = unc_profiles[:, i]
+
             ax.fill_between(avg_distances_short, mean - unc, mean + unc, color = colors[i], alpha = 0.3, linewidth = 0)
 
     if plot_zero_line:
+
         ax.plot(avg_distances_short, mean - mean, color = 'grey', linestyle = ':')
 
     plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
@@ -840,6 +1001,8 @@ def plot_12_monthly_profiles(var, month_string, title, profiles, unc_profiles, a
     if saveplot:
 
         fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+
+    plt.close()
 
 
 
