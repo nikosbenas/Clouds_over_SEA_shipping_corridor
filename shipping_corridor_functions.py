@@ -4,6 +4,7 @@ import os
 import geopy.distance as gd
 import h5py
 from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 from netCDF4 import Dataset
 import numpy as np
 import sys
@@ -109,7 +110,13 @@ def read_monthly_time_series(var, data_folder, start_year, end_year, istart, ien
 
                     if read_diurnal:
 
-                        var_data.append(np.flipud(all_data[var][:, istart:iend, jstart:jend]))
+                        file_data = all_data[var][:, istart:iend, jstart:jend]
+
+                        for i in range(24):
+
+                            file_data[i, :, :] = np.flipud(file_data[i, :, :])
+
+                        var_data.append(file_data)
 
                     else:
 
@@ -167,7 +174,7 @@ def calculate_area_weighted_average(array, lat_array):
 
         if np.all(np.isnan(array)):
 
-            return np.nan
+            return np.nan, np.nan
         
         else:
 
@@ -181,7 +188,7 @@ def calculate_area_weighted_average(array, lat_array):
 
         if np.all(np.isnan(array)):
 
-            return np.nan
+            return np.nan, np.nan
         
         else:
 
@@ -1013,6 +1020,44 @@ def plot_12_monthly_profiles(var, month_string, title, profiles, unc_profiles, a
         fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
 
     plt.close()
+
+
+def plot_diurnal(var, y_diurnal, y_std, title, output_file, saveplot):
+
+    '''
+    Description:
+        This function generates a diurnal plot showing the variation of a variable over a 24-hour period. The plot also displays shaded regions indicating the standard deviation. The plot can be optionally saved to an output file.
+
+    Input:
+        - var: A string representing the variable name.
+        - y_diurnal: A 1D NumPy array containing the values of the variable over a 24-hour period.
+        - y_std: A 1D NumPy array containing the standard deviation of the variable over a 24-hour period.
+        - title: A string with the title of the plot.
+        - output_file: A string with the file path for saving the plot.
+        - saveplot: A boolean indicating whether to save the plot to the output file.
+
+    Output:
+        - If saveplot is set to True, the plot is saved to the specified output file.
+    '''
+
+    hours = np.arange(0.5, 24, 1)
+
+    fig, ax = plt.subplots()
+
+    # Set x-axis tick labels to display time in the format 'H:MM'
+    ax.set_xticks(hours)
+    ax.set_xticklabels([f"{int(hour)}:{30 if hour % 1 == 0.5 else '00'}" for hour in hours])
+
+    ax.plot(hours, y_diurnal, color='k')
+    ax.fill_between(hours, y_diurnal - y_std, y_diurnal + y_std, color = 'k', alpha = 0.3, linewidth = 0)
+
+    ax.set_xlabel('Time (UTC)')
+    ax.set_ylabel('[' + varUnits[var] + ']', color='k')
+    ax.set_title(title)
+
+    if saveplot:
+
+        fig.savefig(output_file, dpi = 300, bbox_inches = 'tight')
 
 
 
