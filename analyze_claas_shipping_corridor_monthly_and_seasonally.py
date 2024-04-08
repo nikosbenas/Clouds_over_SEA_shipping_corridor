@@ -205,7 +205,7 @@ if plot_monthly_profiles_separately:
 
     for m in range(12):
 
-        plot_profile_and_NoShip_line(var, centered['monthly_profile_means_short'][:, m], centered['monthly_profile_unc_short'][:, m], centered['monthly_NoShip_profile_means_short'][:, m], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + month_string[m+1] + ' average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_profile_average_month_' + str(m+1).zfill(2) + '_' + str(start_year) + '-' + str(end_year) + '.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
+        plot_profile_and_NoShip_line(var, centered['monthly_profile_means_short'][:, m], centered['monthly_profile_unc_short'][:, m], centered['monthly_NoShip_profile_means_short'][:, m], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + month_string[m+1] + ' average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/'  + var.upper() + '_profile_average_month_' + str(m+1).zfill(2) + '_' + str(start_year) + '-' + str(end_year) + '.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
 
 
 plot_monthly_profiles_in_one_plot = True
@@ -219,7 +219,7 @@ if plot_monthly_difference_profiles_separately:
 
     for m in range(12):
 
-        plot_profile_and_NoShip_line(var, corridor_effect['monthly_profiles'][:, m], centered['monthly_profile_unc_short'][:, m], np.zeros_like(centered['monthly_profile_means_short'][:, m]), avg_distances_short, zero_index, var.upper() + ' across shipping corridor, ' + month_string[m+1] + ' average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_difference_profile_average_month_' + str(m+1).zfill(2) + '_' + str(start_year) + '-' + str(end_year) + '.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
+        plot_profile_and_NoShip_line(var, corridor_effect['monthly_profiles'][:, m], centered['monthly_profile_unc_short'][:, m], np.zeros_like(centered['monthly_profile_means_short'][:, m]), avg_distances_short, zero_index, var.upper() + ' across shipping corridor, ' + month_string[m+1] + ' average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/'  + var.upper() + '_difference_profile_average_month_' + str(m+1).zfill(2) + '_' + str(start_year) + '-' + str(end_year) + '.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
 
 
 plot_monthly_diff_profiles_in_one_plot = True
@@ -235,10 +235,10 @@ if create_monthly_maps:
     for m in range(12):
 
         # Of means per month
-        make_map(var, mean_per_month[:, :, m], var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' ' + month_string[m+1] + ' average', np.nanmin(mean_per_month[:, :, m]), np.nanmax(mean_per_month[:, :, m]), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_map_average_month_' + str(m+1).zfill(2) + '_' + str(start_year) + '-' + str(end_year) + '.png', saveplot = True)
+        make_map(var, mean_per_month[:, :, m], var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' ' + month_string[m+1] + ' average', np.nanmin(mean_per_month[:, :, m]), np.nanmax(mean_per_month[:, :, m]), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/' + var.upper() + '_map_average_month_' + str(m+1).zfill(2) + '_' + str(start_year) + '-' + str(end_year) + '.png', saveplot = True)
 
         # Of uncertainties per month
-        make_map(var, unc_per_month[:, :, m], var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' ' + month_string[m+1] + ' average uncertainty', np.nanmin(unc_per_month[:, :, m]), np.nanmax(unc_per_month[:, :, m]), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_map_uncertainty_month_' + str(m+1).zfill(2) + '_' + str(start_year) + '-' + str(end_year) + '.png', saveplot = True)
+        make_map(var, unc_per_month[:, :, m], var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' ' + month_string[m+1] + ' average uncertainty', np.nanmin(unc_per_month[:, :, m]), np.nanmax(unc_per_month[:, :, m]), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/' + var.upper() + '_map_uncertainty_month_' + str(m+1).zfill(2) + '_' + str(start_year) + '-' + str(end_year) + '.png', saveplot = True)
 
 
 # Plot seasonal variation of area averages and profile differences
