@@ -66,7 +66,7 @@ def read_lat_lon_arrays(modis_file):
     return latData, lonData
 
 
-def read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend):
+def read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal):
 
     '''
     Description:
@@ -81,6 +81,7 @@ def read_monthly_time_series(var, data_folder, start_year, end_year, istart, ien
         - iend: (int) Ending latitude index
         - jstart: (int) Starting longitude index
         - jend: (int) Ending longitude index
+        - read_diurnal: (boolean) Flag for reading monthly mean diurnal data
 
     Outputs:
         - var_data: (3D NumPy array) Time series data for the specified variable within the specified time period and spatial bounding box
@@ -106,7 +107,13 @@ def read_monthly_time_series(var, data_folder, start_year, end_year, istart, ien
 
                 if all_data[var].ndim == 3: # e.g. CLAAS data
 
-                    var_data.append(np.flipud(all_data[var][0, istart:iend, jstart:jend]))
+                    if read_diurnal:
+
+                        var_data.append(np.flipud(all_data[var][:, istart:iend, jstart:jend]))
+
+                    else:
+
+                        var_data.append(np.flipud(all_data[var][0, istart:iend, jstart:jend]))
 
                 # Read fill value once
                 if 'fill_value' not in locals():
@@ -114,7 +121,10 @@ def read_monthly_time_series(var, data_folder, start_year, end_year, istart, ien
                     fill_value = all_data[var]._FillValue
 
     # Convert list of 2D arrays into 3D array (lat, lon, time)
-    var_data = np.dstack(var_data)
+    if read_diurnal:
+        var_data = np.stack(var_data, axis = 3)
+    else:
+        var_data = np.dstack(var_data)
 
     # Replace fill value with nan
     var_data[var_data == fill_value] = np.nan

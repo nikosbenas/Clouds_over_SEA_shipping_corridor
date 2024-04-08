@@ -4,7 +4,7 @@ import sys
 import numpy as np
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 from claas3_dictionaries import FileNameStart
-from shipping_corridor_functions import calculate_NoShip_curve, calculate_NoShip_line, calculate_across_corridor_average_and_std, calculate_area_weighted_average, center_along_corridor_data_and_uncertainties_per_month, center_data_along_corridor, center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_12_monthly_profiles, plot_intra_annual_variation, read_lat_lon_arrays, read_monthly_time_series, plot_profile_and_NoShip_line
+from shipping_corridor_functions import calculate_NoShip_curve, calculate_NoShip_line, calculate_area_weighted_average, center_along_corridor_data_and_uncertainties_per_month,  center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_12_monthly_profiles, plot_intra_annual_variation, read_lat_lon_arrays, read_monthly_time_series, plot_profile_and_NoShip_line
 
 
 def process_index(c):
@@ -84,6 +84,7 @@ month_string = {
 # Read CLAAS lat, lon once
 claas3_aux_file = '/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends/claas3_level3_aux_data_005deg.nc'
 lat_claas, lon_claas = read_lat_lon_arrays(claas3_aux_file)
+del claas3_aux_file
 
 # Find array indices of lat and lon at bounding box corners
 istart, iend, jstart, jend = find_bounding_box_indices(bounding_box, lat_claas, lon_claas)
@@ -93,11 +94,11 @@ lat_claas = lat_claas[istart:iend, jstart:jend]
 lon_claas = lon_claas[istart:iend, jstart:jend]
 
 # Loop over all years and months to read CLAAS-3 data and their uncertainties into 3D arrays
-data = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend)
+data = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 if var == 'cfc_day':
-    data_unc = read_monthly_time_series('cfc_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend)
+    data_unc = read_monthly_time_series('cfc_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 else:
-    data_unc = read_monthly_time_series(var + '_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend)
+    data_unc = read_monthly_time_series(var + '_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 
 # =============================================================================
 # Process Shipping Corridor data
