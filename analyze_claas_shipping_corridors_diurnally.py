@@ -10,7 +10,7 @@ import numpy as np
 import multiprocessing
 import sys
 
-from shipping_corridor_functions import calculate_across_corridor_average_and_std, calculate_area_weighted_average, center_shipping_corridor_perpendicular_lines, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_diurnal, plot_profile_and_NoShip_line, read_lat_lon_arrays, read_monthly_time_series
+from shipping_corridor_functions import calculate_NoShip_curve, calculate_NoShip_line, calculate_across_corridor_average_and_std, calculate_area_weighted_average, center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_all_hourly_profiles, plot_diurnal, plot_profile_and_NoShip_line, read_lat_lon_arrays, read_monthly_time_series
 # sys.path.append('/usr/people/benas/Documents/CMSAF/python_modules/')
 # from modis_python_functions import map_l3_var as create_map
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
@@ -42,7 +42,7 @@ def process_index(c):
 
 
 # Define variable to read and data folder
-var = 'lwp'
+var = 'cdnc_liq'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var + '_mmdc']
 
 # Uncertainty correlation coefficient for monthly averages
@@ -98,7 +98,7 @@ month = {
 # =============================================================================
 
 # Read CLAAS lat, lon once
-claas3_aux_file = data_folder + '/LWPmd20040101000000419SVMSG01MA.nc'
+claas3_aux_file = data_folder + '/' + FileNameStart[var + '_mmdc'] + '20040101000000419SVMSG01MA.nc'
 lat_claas, lon_claas = read_lat_lon_arrays(claas3_aux_file)
 del claas3_aux_file
 
@@ -165,7 +165,7 @@ time_series['mean_map_per_hour'] = np.nanmean(time_series['all_data'], axis = 3)
 time_series['Nmonths_map_per_hour'] = np.nansum(time_series['all_data'], axis = 3) / time_series['mean_map_per_hour']
 time_series['Nmonths_mean_per_hour'] = np.nanmean(time_series['Nmonths_map_per_hour'], axis = (1, 2))
 
-create_hourly_maps = False
+create_hourly_maps = True
 if create_hourly_maps:
 
     for i in range(24):
@@ -186,345 +186,74 @@ del mean_and_std
 # Remove cases where map is not entirely covered
 time_series['spatial_mean_per_hour'][time_series['spatial_Ncells_per_hour'] < lat_claas.size] = np.nan
 # Remove cases where map is not entirely covered with all available months
-time_series['spatial_mean_per_hour'][time_series['Nmonths_mean_per_hour'] < np.nanmax(time_series['Nmonths_mean_per_hour'])] = np.nan
+time_series['spatial_mean_per_hour'][time_series['Nmonths_mean_per_hour'] < (np.nanmax(time_series['Nmonths_mean_per_hour'])-1)] = np.nan
 
-plot_diurnal_spatial_averages = False
+plot_diurnal_spatial_averages = True
 if plot_diurnal_spatial_averages:
 
-    plot_diurnal(var, time_series['spatial_mean_per_hour'], time_series['spatial_std_per_hour'], var.upper() + ' diurnal variation', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_diurnal_mean.png', saveplot = True)
+    plot_diurnal(var, time_series['spatial_mean_per_hour'], time_series['spatial_std_per_hour'], var.upper() + ' diurnal variation', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_diurnal_mean.png', plot_zero_line = False, saveplot = True)
 
 
 # 3. Corridor-centered analysis
 # Find data mean values centered along the shipping corridor
-centered['mean_per_hour'] = []; centered['std_per_hour'] = []; centered['N_per_hour'] = []
-for i in range(24):
+centered['mean_profile_per_hour'], centered['std_profile_per_hour'], centered['N_profile_per_hour'] = zip(*[calculate_across_corridor_average_and_std(centered['latitude_indices'], centered['longitude_indices'], time_series['mean_map_per_hour'][i, :, :]) for i in range(24)])    
 
-    mean, std, N = calculate_across_corridor_average_and_std(centered['latitude_indices'], centered['longitude_indices'], time_series['mean_map_per_hour'][i, :, :]) 
-    centered['mean_per_hour'].append(mean)
-    centered['std_per_hour'].append(std)
-    centered['N_per_hour'].append(N)
+centered['mean_profile_per_hour'] = np.array(centered['mean_profile_per_hour'])
+centered['std_profile_per_hour'] = np.array(centered['std_profile_per_hour'])
+centered['N_profile_per_hour'] = np.array(centered['N_profile_per_hour'])
 
-# centered['mean_per_hour'], centered['std_per_hour'], centered['N_per_hour'] = zip(*[calculate_across_corridor_average_and_std(centered['latitude_indices'], centered['longitude_indices'], time_series['mean_map_per_hour'][i, :, :]) for i in range(24)])    
+# Create shorter profile plots
+avg_distances_short = create_short_across_corridor_profiles(350, avg_distances, avg_distances) 
 
-centered['mean_per_hour'] = np.array(centered['mean_per_hour'])
-centered['std_per_hour'] = np.array(centered['std_per_hour'])
-centered['N_per_hour'] = np.array(centered['N_per_hour'])
+centered['mean_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(350, avg_distances, profile) for profile in centered['mean_profile_per_hour']])
 
-plot_24_profiles = True
+centered['std_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(350, avg_distances, profile) for profile in centered['std_profile_per_hour']])
+
+centered['N_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(350, avg_distances, profile) for profile in centered['N_profile_per_hour']])
+
+
+# Calculate straight line to create NoShip profiles (curve in the CFC and LWP cases)
+if ('cfc' in var) or ('lwp' in var):
+
+    centered['mean_NoShip_profile_per_hour'] = np.array([calculate_NoShip_curve(avg_distances, profile, 250) for profile in centered['mean_profile_per_hour']])
+
+else:
+
+    centered['mean_NoShip_profile_per_hour'] = np.array([calculate_NoShip_line(avg_distances, profile, 250) for profile in centered['mean_profile_per_hour']])
+
+# Create shorter NoShip profiles per month
+centered['mean_NoShip_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(350, avg_distances, profile) for profile in centered['mean_NoShip_profile_per_hour']])
+
+plot_24_profiles = False
 if plot_24_profiles:
 
     for i in range(24):
 
-        plot_profile_and_NoShip_line(var, centered['mean_per_hour'][i, :], centered['std_per_hour'][i, :], centered['mean_per_hour'][i, :], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + str(i).zfill(2) + ':30 UTC average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_profile_average_at_' + str(i).zfill(2) + '30UTC.png', plot_NoShip_line = False, plot_std_band = True, saveplot = True)
+        plot_profile_and_NoShip_line(var, centered['mean_profile_per_hour'][i, :], centered['std_profile_per_hour'][i, :], centered['mean_profile_per_hour'][i, :], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + str(i).zfill(2) + ':30 UTC average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_long_profile_average_at_' + str(i).zfill(2) + '30UTC.png', plot_NoShip_line = False, plot_std_band = True, saveplot = True)
+
+        plot_profile_and_NoShip_line(var, centered['mean_profile_per_hour_short'][i, :], centered['std_profile_per_hour_short'][i, :], centered['mean_NoShip_profile_per_hour_short'][i, :], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + str(i).zfill(2) + ':30 UTC average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_profile_average_at_' + str(i).zfill(2) + '30UTC.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
+
+
+# Calculate profiles of differences (Ship - NoShip), ...
+corridor_effect['mean_profile_per_hour'] = centered['mean_profile_per_hour_short'] - centered['mean_NoShip_profile_per_hour_short']
+
+corridor_effect['std_profile_per_hour'] = centered['std_profile_per_hour_short']
+
+# ... their averages and corresponding stds, per hour
+corridor_effect['mean_per_hour'] = np.array([np.nanmean(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < 250]) for h in range(24)])
+
+corridor_effect['std_per_hour'] = np.array([np.nanstd(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < 250]) for h in range(24)])
+
+corridor_effect['N_per_hour'] = np.array([np.round(np.nansum(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < 250]) / corridor_effect['mean_per_hour'][h]) for h in range(24)])
+
+
+# Remove cases where map is not entirely covered
+corridor_effect['mean_per_hour'][time_series['spatial_Ncells_per_hour'] < lat_claas.size] = np.nan
+# Remove cases where map is not entirely covered with all available months
+corridor_effect['mean_per_hour'][time_series['Nmonths_mean_per_hour'] < (np.nanmax(time_series['Nmonths_mean_per_hour'])-1)] = np.nan
+
+plot_diurnal(var, corridor_effect['mean_per_hour'], corridor_effect['std_per_hour'], 'Diurnal corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_diurnal_corridor_effect_and_std.png', plot_zero_line = True, saveplot = True)         
+
+plot_all_hourly_profiles(var, corridor_effect['mean_profile_per_hour'], corridor_effect['std_profile_per_hour'], avg_distances, zero_index, avg_distances_short, 'Hourly effect across corridor on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_all_hourly_diff_profiles_across_sc.png', plot_std_bands = False, plot_zero_line = True, saveplot = True),  
 
 print('check')
-
-'''
-        
-
-
-# =============================================================================
-# OPTIONAL CODE: Calculate time series average per grid cell and plot results
-# =============================================================================
-
-if analyze_timeseries_average:
-    
-        
-    # Find data mean values centered along the shipping corridor
-    
-    centered_data_ts_mean = np.full(((24,) + centered_lat_inds.shape), np.nan)
-    for i in range(24):
-        
-        centered_data_ts_mean[i, :, :] = center_data_along_corridor(
-            data_ts_mean[i, :, :], centered_lat_inds, centered_lon_inds)
-    
-    centered_data_ts_mean_avg = np.nanmean(centered_data_ts_mean, axis = 1)
-    centered_data_ts_mean_N = (np.nansum(centered_data_ts_mean, axis = 1) /
-                               centered_data_ts_mean_avg)
-    
-    # Calculate straight line to imitate absence of the shipping corridor ...
-    centered_data_ts_mean_NoShip = np.full_like(centered_data_ts_mean_avg, 
-                                                np.nan)
-    # ... and define the corridor effect as their difference
-    diff = np.full_like(centered_data_ts_mean_avg, np.nan)
-    for i in range(24):
-    
-        centered_data_ts_mean_NoShip[i, :] = calculate_NoShip_line(
-        avg_distances, centered_data_ts_mean_avg[i, :], 250)
-        
-        diff[i, :] = centered_data_ts_mean_avg[i, :] -\
-            centered_data_ts_mean_NoShip[i, :]
-    
-    # OPTIONAL PLOTS
-    if plot_diurnal_average_profiles:
-        
-        # Keep data falling at most 350 km from the corridor center
-        avg_distances_350 = copy.deepcopy(avg_distances)
-        avg_distances_350[abs(avg_distances) > 350] = np.nan
-        
-    ### Plot all time slot profiles in one plot
-        saveplot = True    
-        
-        fig, ax = plt.subplots()
-        
-        # Define the tab20 colors
-        tab20_colors = plt.cm.tab20(np.linspace(0, 1, 20))
-        
-        # Use the first 12 colors for the plot
-        ax.set_prop_cycle(color=tab20_colors[:12])
-        
-        for i in range(24):
-            
-            if not np.isnan(data_ts_mean[i, :, :]).any():
-            
-                label = str(i).zfill(2) + ':00'
-                ax.plot(avg_distances_350, diff[i, :], label = label)
-            
-        plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        ax.set_xlabel('Distance from corridor center, W to E [km]')
-        ax.set_ylabel('[' + cdict.varUnits[var] + ']')
-        # ax.set_title(var.upper() + ' diurnal change across shipping corridor')
-        
-        if saveplot:
-            outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
-                str(end_year) + '/' + var.upper() + '_diurnal_change_profiles_across_sc.png'
-            fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
-    
-    ### 
-    
-        for i in range(24):
-        
-            if np.isnan(data_ts_mean[i, :, :]).all() == False:
-            
-                outfile = 'Figures/' + var.upper() + '/' + str(start_year) +\
-                    '-' + str(end_year) + '/'  + var.upper() +\
-                        '_time_series_mean_across_sc_long_at_' +\
-                            str(i).zfill(2) + '00_UTC.png'
-            
-                plot_profile_and_NoShip_line(
-                    centered_data_ts_mean_avg[i, :], 
-                    centered_data_ts_mean_NoShip[i, :], var, avg_distances, 
-                    zero_index, var.upper() + ' across shipping corridor, ' +\
-                        'time series average at ' + str(i).zfill(2) + '00 UTC',
-                        outfile, saveplot = False)
-    
-    # centered_data_ts_mean_avg[:, abs(avg_distances) > 350] = np.nan
-            
-            if np.isnan(data_ts_mean[i, :, :]).all() == False:
-        
-                outfile = 'Figures/' + var.upper() + '/' + str(start_year) +\
-                    '-' + str(end_year) + '/' + var.upper() +\
-                        '_time_series_mean_across_sc_at_' + str(i).zfill(2) +\
-                            '00_UTC.png'
-                            
-                plot_profile_and_NoShip_line(
-                    centered_data_ts_mean_avg[i, :], 
-                    centered_data_ts_mean_NoShip[i, :], var, avg_distances_350,
-                    zero_index, var.upper() + ' across shipping corridor, ' +\
-                        'time series average at ' + str(i).zfill(2) + '00 UTC',
-                        outfile, saveplot = False)
-    
-        # Plot difference profile due to SC
-                outfile = 'Figures/' + var.upper() + '/' + str(start_year) +\
-                    '-' + str(end_year) + '/' + var.upper() +\
-                        '_time_series_mean_change_across_sc_at_' +\
-                            str(i).zfill(2) + '00_UTC.png'
-                    
-                plot_profile_and_NoShip_difference(
-                        avg_distances_350, diff[i, :], var, zero_index, var.upper() +
-                        ' change across shipping corridor, time series ' +
-                        'average at ' + str(i).zfill(2) + '00 UTC', outfile, 
-                        saveplot = False)                    
-
-    # CALCULATE WEIGHTED AVERAGES PER TIME SLOT
-    avg_distances_250 = copy.deepcopy(avg_distances)
-    diff_250 = copy.deepcopy(diff)
-    diff_250[:, abs(avg_distances) > 250] = np.nan
-    centered_data_ts_mean_avg[:, abs(avg_distances) > 250] = np.nan
-    avg_distances_250[abs(avg_distances) > 250] = np.nan
-    
-    weights = 1 / (1 + abs(avg_distances_250))
-    indices = np.where(np.logical_not(np.isnan(avg_distances_250)))[0]
-    
-    avg_diff = np.full(24, np.nan)
-    diurnal_corridor_avg = np.full(24, np.nan)
-    for i in range(24):
-        
-        avg_diff[i] = np.average(diff_250[i, indices], 
-                                 weights = weights[indices])
-        diurnal_corridor_avg[i] = np.average(
-            centered_data_ts_mean_avg[i, indices], weights = weights[indices])
-
-    
-#### Plot average diurnal differences and spatial averages
-
-for i in range(24):
-    
-    if np.isnan(data_ts_mean[i, :, :]).any():
-        
-        avg_diff[i] = np.nan
-        diurnal_corridor_avg[i] = np.nan
-        
-        
-# saveplot = True
-
-# hours = np.arange(24)
-
-# # Create a figure and left axis
-# fig, ax1 = plt.subplots()
-
-# # Plot average differences on the left axis
-# ldiff, = ax1.plot(hours, diurnal_corridor_avg, color='k', label='Corridor average')
-# ax1.set_ylim([0, 200])
-# ax1.set_xlabel('Time (UTC)')
-# ax1.set_ylabel('[' + cdict.varUnits[var] + ']', color='k')
-# ax1.tick_params('y', colors='k')
-
-# # Create a secondary y-axis on the right
-# ax2 = ax1.twinx()
-
-# # Plot spatial averages on the right axis
-# lavg, = ax2.plot(hours, avg_diff, color='b', label='Corridor effect')
-# ax2.set_ylim([0, 10])
-# ax2.set_ylabel('[' + cdict.varUnits[var] + ']', color='b')
-# ax2.tick_params('y', colors='b')
-
-# lines = [ldiff, lavg]
-# labels = [line.get_label() for line in lines]
-# ax1.legend(lines, labels)
-
-# fig.tight_layout()
-
-# plt.show()
-
-# if saveplot:
-#     outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
-#         str(end_year) + '/' + var.upper() + '_diurnal_change_and_mean.png'
-#     fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
-    
-    
-import matplotlib.gridspec as gridspec
-
-saveplot = True
-
-hours = np.arange(24)
-
-# Create a 2x1 grid
-fig = plt.figure(figsize=(8, 6))
-gs = gridspec.GridSpec(2, 1, height_ratios=[2, 1])
-
-# Top subplot
-ax1 = plt.subplot(gs[0])
-
-# Plot average differences on the left axis
-ldiff, = ax1.plot(hours, diurnal_corridor_avg, color='k', label='Corridor average')
-ax1.set_ylim([0, 100])
-# ax1.set_xlabel('Time (UTC)')
-ax1.set_ylabel('[' + cdict.varUnits[var] + ']', color='k')
-ax1.tick_params('y', colors='k')
-
-# Bottom subplot
-ax2 = plt.subplot(gs[1], sharex=ax1)
-
-# Plot spatial averages on the right axis
-lavg, = ax2.plot(hours, avg_diff, color='b', label='Corridor effect')
-ax2.set_ylim([-2, 0])
-ax2.set_xlabel('Time (UTC)')
-ax2.set_ylabel('[' + cdict.varUnits[var] + ']', color='b')
-ax2.tick_params('y', colors='b')
-
-lines = [ldiff, lavg]
-labels = [line.get_label() for line in lines]
-ax1.legend(lines, labels)
-
-fig.tight_layout()
-
-plt.show()
-
-if saveplot:
-    outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
-        str(end_year) + '/' + var.upper() + '_diurnal_change_and_mean.png'
-    fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
-
-### Plot diurnal spatial averages and effects in same axis    
-saveplot = True
-
-fig = plt.figure()
-plt.plot(hours, diurnal_corridor_avg, color='grey', label='Corridor average')
-plt.plot(hours, avg_diff, color='b', label='Corridor effect')
-plt.plot(hours[8:16], np.zeros(len(hours))[8:16], ':', color = 'grey')
-plt.ylim([-3, 100])
-plt.xlabel('Time (UTC)')
-plt.ylabel('[' + cdict.varUnits[var] + ']', color='k')
-plt.legend()
-plt.show()
-
-if saveplot:
-    outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
-        str(end_year) + '/' + var.upper() + '_diurnal_change_and_mean_1axis.png'
-    fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
-
-
-    
-### Plot diurnal spatial averages only    
-# saveplot = False
-
-# fig = plt.figure()
-# plt.plot(hours, diurnal_corridor_avg, color='grey', label='Corridor average')
-# plt.xlim([-1, 24])
-# plt.ylim([3, 13])
-# plt.xlabel('Time (UTC)')
-# plt.ylabel('[' + cdict.varUnits[var] + ']', color='k')
-# plt.legend()
-# plt.show()
-
-# if saveplot:
-#     outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
-#         str(end_year) + '/' + var.upper() + '_diurnal_mean.png'
-#     fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
-
-
-
-# =============================================================================
-# Create some test maps
-# =============================================================================
-
-# outfile = 'Figures/' + var.upper() + '/' + str(start_year) + '-' +\
-#     str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' +\
-#         str(end_year) + '_average.png'
-# create_map(lat_claas, lon_claas, data_ts_mean, np.nanmin(data_ts_mean), 
-#             np.nanmax(data_ts_mean), var.upper() + ' ' + str(start_year) +
-#             '-' + str(end_year) + ' average', 'cm-3', 'viridis', 'neither', 
-#             outfile, saveplot = False)
-
-# for m in range(12):
-    
-#     outfile = 'test'
-    
-#     create_map(lat_claas, lon_claas, data_seas_mean[:, :, m], 
-#                np.nanmin(data_seas_mean), np.nanmax(data_seas_mean), 
-#                'CDNC average in month ' + str(m+1).zfill(2), 'cm-3', 'viridis', 
-#                'neither', outfile, saveplot = False)
-
-
-# outfile = './Flag_sc.png'
-# create_map(lat_claas, lon_claas, flag_sc, 0, 1, 'Shipping corridor 2', '-', 
-#            'Reds', 'neither', outfile, saveplot = False)
-
-# # Mask non-ship-corridor areas
-# var_data_mean_only_ships = np.where(flag_reduced == 0, np.nan, var_data_mean)
-# outfile = './CDNC_average_only_ships.png'
-# create_map(lat_claas, lon_claas, var_data_mean_only_ships, 
-#            np.min(var_data_mean), np.max(var_data_mean), 
-#            'CDNC average ships', 'cm-3', 
-#            'viridis', 'neither', outfile, saveplot = True)
-
-# # Mask ship-corridor areas
-# var_data_mean_no_ships = np.where(flag_reduced == 1, np.nan, var_data_mean)
-# outfile = './CDNC_average_no_ships.png'
-# create_map(lat_claas, lon_claas, var_data_mean_no_ships, 
-#            np.min(var_data_mean), np.max(var_data_mean), 
-#            'CDNC average no ships', 'cm-3', 
-#            'viridis', 'neither', outfile, saveplot = True)    
-'''

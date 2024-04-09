@@ -43,21 +43,21 @@ def find_bounding_box_indices(bounding_box, lat_array, lon_array):
     return istart, iend, jstart, jend
 
 
-def read_lat_lon_arrays(modis_file):
+def read_lat_lon_arrays(input_file):
 
     '''
     Description:
         Reads latitude and longitude data from a netCDF file and returns meshgrid arrays.
 
     Inputs:
-        - modis_file: (string) Path to the MODIS file
+        - input_file: (string) Path to the MODIS file
 
     Outputs:
         - latData: (2D NumPy array) Latitude values in meshgrid format
         - lonData: (2D NumPy array) Longitude values in meshgrid format
     '''
 
-    with h5py.File(modis_file, 'r') as file:
+    with h5py.File(input_file, 'r') as file:
 
         latData = file['lat'][:]
         lonData = file['lon'][:]
@@ -872,6 +872,10 @@ def calculate_NoShip_curve(distance, profile_data, half_range):
 
     idx = np.isfinite(x_with_gap) & np.isfinite(y_with_gap)
 
+    if not any(idx): # All idx elements are false
+
+        return np.full_like(distance, np.nan)
+
     coefficients = np.polyfit(x_with_gap[idx], y_with_gap[idx], 3)
     a, b, c, d = coefficients
 
@@ -1022,7 +1026,68 @@ def plot_12_monthly_profiles(var, month_string, title, profiles, unc_profiles, a
     plt.close()
 
 
-def plot_diurnal(var, y_diurnal, y_std, title, output_file, saveplot):
+def plot_all_hourly_profiles(var, profiles, std_profiles, avg_distances, zero_index, avg_distances_short, title, outfile, plot_std_bands, plot_zero_line, saveplot):
+
+    '''
+    Description:
+        This function generates a plot displaying all available hourly profiles of a variable across the shipping corridor, with optional standard deviation bands and the zero line (when differences are plotted). The plot can be saved to a file if specified.
+
+    Input:
+        - var: Variable name (e.g., 'cdnc_liq', 'cre_liq').
+        - profiles: 2D NumPy array (24, n) containing the monthly profiles to be plotted.
+        - std_profiles: 2D NumPy array (24, n) containing the standard deviations of the monthly profiles.
+        - avg_distances: 1D NumPy array (n) representing distances from the corridor center.
+        - zero_index: Index of the zero value on the avg_distances array.
+        - avg_distances_short: 1D NumPy array (n) containing NaN values for distances larger than a threshold.
+        - title: Title of the plot.
+        - outfile: Filepath to save the plot.
+        - plot_std_bands: Boolean indicating whether to plot standard deviation bands.
+        - plot_zero_line: Boolean indicating whether to plot a zero line.
+        - saveplot: Boolean indicating whether to save the plot to outfile.
+
+    Output:
+        - None.
+    '''
+    
+    fig, ax = plt.subplots()
+
+    # Define the tab20 colors
+    tab20_colors = plt.cm.tab20(np.linspace(0, 1, 24))
+
+    colors = tab20_colors[:]
+
+    for i in range(24):
+
+        label = str(i).zfill(2) + ':30'
+
+        mean = profiles[i, :]
+
+        ax.plot(avg_distances_short, mean, label = label, color = colors[i])
+
+        if plot_std_bands:
+
+            unc = std_profiles[:, i]
+
+            ax.fill_between(avg_distances_short, mean - unc, mean + unc, color = colors[i], alpha = 0.3, linewidth = 0)
+
+    if plot_zero_line:
+
+        ax.plot(avg_distances_short, mean - mean, color = 'grey', linestyle = ':')
+
+    plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.set_xlabel('Distance from corridor center, W to E [km]')
+    ax.set_ylabel('[' + varUnits[var] + ']')
+    ax.set_title(title)
+
+    if saveplot:
+
+        fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+
+    plt.close()
+
+
+def plot_diurnal(var, y_diurnal, y_std, title, output_file, plot_zero_line, saveplot):
 
     '''
     Description:
@@ -1034,6 +1099,7 @@ def plot_diurnal(var, y_diurnal, y_std, title, output_file, saveplot):
         - y_std: A 1D NumPy array containing the standard deviation of the variable over a 24-hour period.
         - title: A string with the title of the plot.
         - output_file: A string with the file path for saving the plot.
+        - plot_zero_line: Boolean indicating whether to plot a dotted line at y = 0.
         - saveplot: A boolean indicating whether to save the plot to the output file.
 
     Output:
@@ -1050,6 +1116,10 @@ def plot_diurnal(var, y_diurnal, y_std, title, output_file, saveplot):
 
     ax.plot(hours, y_diurnal, color='k')
     ax.fill_between(hours, y_diurnal - y_std, y_diurnal + y_std, color = 'k', alpha = 0.3, linewidth = 0)
+
+    if plot_zero_line:
+
+        plt.axhline(y = 0, linestyle = ':', color = 'k')
 
     ax.set_xlabel('Time (UTC)')
     ax.set_ylabel('[' + varUnits[var] + ']', color='k')
