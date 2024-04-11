@@ -810,49 +810,17 @@ def plot_change_and_zero_line(var, profile_data, profile_data_std, distance, zer
     plt.close()
 
 
-def calculate_NoShip_line(distance, profile_data, half_range):
+def calculate_NoShip_curve(distance, profile_data, half_range, fit_order):
     
     '''
     Description:
-        This function calculates the NoShip line based on the shipping corridor center and a specified half range. It determines a line equation in the form y = ax + b, where 'y' represents the NoShip data, 'x' represents the distance from the center, and 'a' and 'b' are coefficients. the NoShip data are calculated based on linear interpolation. 
-
-    Inputs:
-        - distance: A 1D NumPy array representing the distance from the center for each data point.
-        - profile_data: A 1D NumPy array containing the original profile data.
-        - half_range: The half range in kilometers from the corridor center to define the two interpolation points.
-
-    Outputs:
-        - NoShip_line: A 1D NumPy array representing the linearly interpolated NoShip line values at each distance point.                            
-    '''
-    
-    # Find indices of grid cells defining the range -half_range km to 
-    # half_range km from center.
-    iw = np.argmin(abs(-half_range - distance)) # index west
-    ie = np.argmin(abs(half_range - distance)) # index east
-
-    # Find a and b in line y = ax + b
-    x1 = distance[iw]
-    x2 = distance[ie]
-    y1 = profile_data[iw]
-    y2 = profile_data[ie]
-
-    a = (y2 - y1) / (x2 - x1)
-    b = y2 - a*x2
-
-    # Find line values at distance points
-    return a * distance + b
-
-
-def calculate_NoShip_curve(distance, profile_data, half_range):
-    
-    '''
-    Description:
-        This function calculates the NoShip curve using a cubic polynomial fit. The cubic fit uses only data within a range of 350 km to half_range km from both sides of the corridor center.
+        This function calculates the NoShip curve using a polynomial fit. The  fit uses only data within a range of 400 km to half_range km from both sides of the corridor center.
 
     Inputs:
         - distance: A 1D NumPy array representing the distance from the corridor center for each data point.
         - profile_data: A 1D NumPy array containing the original profile data.
         - half_range: The half range in kilometers from the corridor center to define the corridor-affected range.
+        - fit_order: order of the polynomial to be fitted.
 
     Outputs:
         - y_interpolated: A 1D NumPy array representing the interpolated NoShip curve values at each distance point.                            
@@ -863,9 +831,9 @@ def calculate_NoShip_curve(distance, profile_data, half_range):
     iw = np.argmin(abs(-half_range - distance)) # index west
     ie = np.argmin(abs(half_range - distance)) # index east
 
-    # For the cubic fit, onsider only data between 350 km and 250 km from both sides of the corridor center
-    iw_end = np.argmin(abs(-350 - distance)) # index west
-    ie_start = np.argmin(abs(350 - distance)) # index east
+    # For the cubic fit, onsider only data between 400 km and 250 km from both sides of the corridor center
+    iw_end = np.argmin(abs(-400 - distance)) # index west
+    ie_start = np.argmin(abs(400 - distance)) # index east
 
     x_with_gap = np.concatenate((distance[ie_start:ie], distance[iw:iw_end]))
     y_with_gap = np.concatenate((profile_data[ie_start:ie], profile_data[iw:iw_end]))
@@ -876,10 +844,19 @@ def calculate_NoShip_curve(distance, profile_data, half_range):
 
         return np.full_like(distance, np.nan)
 
-    coefficients = np.polyfit(x_with_gap[idx], y_with_gap[idx], 3)
-    a, b, c, d = coefficients
+    coefficients = np.polyfit(x_with_gap[idx], y_with_gap[idx], fit_order)
 
-    y_interpolated = a*distance**3 + b*distance**2 + c*distance + d
+    if fit_order == 1:
+
+        a, b = coefficients
+
+        y_interpolated = a*distance + b
+
+    if fit_order == 3:
+
+        a, b, c, d = coefficients
+
+        y_interpolated = a*distance**3 + b*distance**2 + c*distance + d
 
     return y_interpolated
 
@@ -1052,27 +1029,35 @@ def plot_all_hourly_profiles(var, profiles, std_profiles, avg_distances, zero_in
     fig, ax = plt.subplots()
 
     # Define the tab20 colors
-    tab20_colors = plt.cm.tab20(np.linspace(0, 1, 24))
+    if ('cfc' in var) or ('cth' in var):
+        tab20_colors = plt.cm.tab20(np.linspace(0, 1, 24))
+    else:
+        tab20_colors = plt.cm.tab20(np.linspace(0, 1, 20))
 
     colors = tab20_colors[:]
+    color_index = 0
 
     for i in range(24):
 
-        label = str(i).zfill(2) + ':30'
-
         mean = profiles[i, :]
 
-        ax.plot(avg_distances_short, mean, label = label, color = colors[i])
+        if not np.all(np.isnan(mean)):
 
-        if plot_std_bands:
+            label = str(i).zfill(2) + ':30'
 
-            unc = std_profiles[:, i]
+            ax.plot(avg_distances_short, mean, label = label, color = colors[color_index])
 
-            ax.fill_between(avg_distances_short, mean - unc, mean + unc, color = colors[i], alpha = 0.3, linewidth = 0)
+            if plot_std_bands:
+
+                unc = std_profiles[:, i]
+
+                ax.fill_between(avg_distances_short, mean - unc, mean + unc, color = colors[color_index], alpha = 0.3, linewidth = 0)
+
+            color_index += 1
 
     if plot_zero_line:
 
-        ax.plot(avg_distances_short, mean - mean, color = 'grey', linestyle = ':')
+        ax.plot(avg_distances_short, np.zeros_like(avg_distances_short), color = 'grey', linestyle = ':')
 
     plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
