@@ -1,3 +1,14 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+This program analyzes the diurnal variation of CLAAS-3 data over the SE Atlantic shipping corridor. It is structured as follows:
+1. Reads the CLAAS-3 data.
+2. Reads the shipping corridor data.
+3. Calculates map of time series averages.
+4. Creates (average) profile of data variation across the shipping corridor based on the time series average map. It also calculates the corresponding NoShip curve.
+5. Calculates the corridor effect as a profile as above, and also as one simple average value.
+"""
+
 from datetime import datetime
 import multiprocessing
 import sys
@@ -29,7 +40,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cfc'
+var = 'cgt_liq'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
 
 # Uncertainty correlation coefficient for monthly averages
@@ -135,16 +146,6 @@ time_series['std'] = np.nanstd(time_series['data'], axis = 2)
 time_series['Nmonths'] = np.round(np.nansum(time_series['data'], axis = 2) / time_series['mean']).astype(int)
 time_series['unc_mean'] = np.sqrt(((1 / time_series['Nmonths']) * (time_series['std']**2)) + unc_coeff * (np.nanmean(time_series['unc'])**2))
 
-# Create maps of time series mean values and uncertainties
-create_map = True
-if create_map:
-
-    # Of time series mean
-    make_map(var, time_series['mean'], var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average', np.nanmin(time_series['mean']), np.nanmax(time_series['mean']), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average.png', saveplot = True)
-
-    # Of time series mean uncertainties
-    make_map(var, time_series['unc_mean'], var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average uncertainty', np.nanmin(time_series['unc_mean']), np.nanmax(time_series['unc_mean']), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_uncertainty.png', saveplot = True)
-
 # Find data mean values centered along the shipping corridor
 centered['mean'], centered['std'], centered['N'] = calculate_across_corridor_average_and_std(centered['latitude_indices'], centered['longitude_indices'], time_series['mean'])  
 
@@ -154,16 +155,14 @@ centered['unc_mean'] = np.sqrt(((1 / centered['N']) * (centered['std']**2)) + un
 
 # Calculate straight line to imitate absence of the shipping corridor (curve in the CFC case)
 
-if ('cfc' in var) or ('lwp' in var):
-    centered['mean_NoShip'] = calculate_NoShip_curve(avg_distances, centered['mean'], 250)
-else:
-    centered['mean_NoShip'] = calculate_NoShip_line(avg_distances, centered['mean'], 250)
+centered['mean_NoShip'] = calculate_NoShip_curve(avg_distances, centered['mean'], 250, 3)
 
 # Create shorter profile plots mean values and uncertainties, centered on the corridor
-avg_distances_short = create_short_across_corridor_profiles(350, avg_distances, avg_distances)
-centered['mean_short'] = create_short_across_corridor_profiles(350, avg_distances, centered['mean'])
-centered['mean_short_NoShip'] = create_short_across_corridor_profiles(350, avg_distances, centered['mean_NoShip'])
-centered['unc_mean_short'] = create_short_across_corridor_profiles(350, avg_distances, centered['unc_mean'])
+short_half_range = 350
+avg_distances_short = create_short_across_corridor_profiles(short_half_range, avg_distances, avg_distances)
+centered['mean_short'] = create_short_across_corridor_profiles(short_half_range, avg_distances, centered['mean'])
+centered['mean_short_NoShip'] = create_short_across_corridor_profiles(short_half_range, avg_distances, centered['mean_NoShip'])
+centered['unc_mean_short'] = create_short_across_corridor_profiles(short_half_range, avg_distances, centered['unc_mean'])
 
 # And calculate corridor effect
 corridor_effect = {}
@@ -174,6 +173,16 @@ corridor_effect['std'] = np.nanstd(corridor_effect['profile'][abs(avg_distances_
 corridor_effect['N_points'] = np.nansum(corridor_effect['profile'][abs(avg_distances_short) < 250]) / corridor_effect['mean']
 corridor_effect['unc_mean'] = np.sqrt(((1/corridor_effect['N_points']) * corridor_effect['std']**2) + (unc_coeff * np.nanmean(corridor_effect['profile_unc'][abs(avg_distances_short) < 250])**2))
 
+
+# Create maps of time series mean values and uncertainties
+create_map = True
+if create_map:
+
+    # Of time series mean
+    make_map(var, time_series['mean'], var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average', np.nanmin(time_series['mean']), np.nanmax(time_series['mean']), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average.png', saveplot = True)
+
+    # Of time series mean uncertainties
+    make_map(var, time_series['unc_mean'], var.upper() + ' ' + str(start_year) + '-' + str(end_year) + ' average uncertainty', np.nanmin(time_series['unc_mean']), np.nanmax(time_series['unc_mean']), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_uncertainty.png', saveplot = True)
 
 create_profile_plots = True
 if create_profile_plots:
