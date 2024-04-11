@@ -44,7 +44,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variable to read and data folder
-var = 'cdnc_liq'
+var = 'lwp'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var + '_mmdc']
 
 # Uncertainty correlation coefficient for monthly averages
@@ -192,26 +192,23 @@ centered['std_profile_per_hour'] = np.array(centered['std_profile_per_hour'])
 centered['N_profile_per_hour'] = np.array(centered['N_profile_per_hour'])
 
 # Create shorter profile plots
-avg_distances_short = create_short_across_corridor_profiles(350, avg_distances, avg_distances) 
+short_half_range = 350
 
-centered['mean_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(350, avg_distances, profile) for profile in centered['mean_profile_per_hour']])
+avg_distances_short = create_short_across_corridor_profiles(short_half_range, avg_distances, avg_distances) 
 
-centered['std_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(350, avg_distances, profile) for profile in centered['std_profile_per_hour']])
+centered['mean_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(short_half_range, avg_distances, profile) for profile in centered['mean_profile_per_hour']])
 
-centered['N_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(350, avg_distances, profile) for profile in centered['N_profile_per_hour']])
+centered['std_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(short_half_range, avg_distances, profile) for profile in centered['std_profile_per_hour']])
+
+centered['N_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(short_half_range, avg_distances, profile) for profile in centered['N_profile_per_hour']])
 
 
 # Calculate straight line to create NoShip profiles (curve in the CFC and LWP cases)
-if ('cfc' in var) or ('lwp' in var) or ('cdnc' in var): 
+centered['mean_NoShip_profile_per_hour'] = np.array([calculate_NoShip_curve(avg_distances, profile, 250, 3) for profile in centered['mean_profile_per_hour']])
 
-    centered['mean_NoShip_profile_per_hour'] = np.array([calculate_NoShip_curve(avg_distances, profile, 250, 3) for profile in centered['mean_profile_per_hour']])
-
-else:
-
-    centered['mean_NoShip_profile_per_hour'] = np.array([calculate_NoShip_line(avg_distances, profile, 250) for profile in centered['mean_profile_per_hour']])
 
 # Create shorter NoShip profiles per month
-centered['mean_NoShip_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(350, avg_distances, profile) for profile in centered['mean_NoShip_profile_per_hour']])
+centered['mean_NoShip_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(short_half_range, avg_distances, profile) for profile in centered['mean_NoShip_profile_per_hour']])
 
 
 
@@ -242,14 +239,16 @@ corridor_effect['mean_profile_per_hour'][time_series['Nmonths_mean_per_hour'] < 
 
 
 # 1. Maps of all-month averages per hour
-create_hourly_maps = False
+create_hourly_maps = True
 if create_hourly_maps:
 
     for i in range(24):
 
-        make_map(var, time_series['mean_map_per_hour'][i, :, :], var.upper() + ' ' + str(i).zfill(2) + ':30 UTC average', np.nanmin(time_series['mean_map_per_hour'][i, :, :]), np.nanmax(time_series['mean_map_per_hour'][i, :, :]), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_map_average_hour_' + str(i).zfill(2) + '30UTC_' + str(start_year) + '-' + str(end_year) + '.png', saveplot = True)
+        if not np.all(np.isnan(time_series['mean_map_per_hour'][i, :, :])):
 
-        make_map(var, time_series['Nmonths_map_per_hour'][i, :, :], var.upper() + ' ' + str(i).zfill(2) + ':30 UTC Nmonths', np.nanmin(time_series['Nmonths_map_per_hour'][i, :, :]), np.nanmax(time_series['Nmonths_map_per_hour'][i, :, :]), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_map_Nmonths_hour_' + str(i).zfill(2) + '30UTC_' + str(start_year) + '-' + str(end_year) + '.png', saveplot = True)
+            make_map(var, time_series['mean_map_per_hour'][i, :, :], var.upper() + ' ' + str(i).zfill(2) + ':30 UTC average', np.nanmin(time_series['mean_map_per_hour'][i, :, :]), np.nanmax(time_series['mean_map_per_hour'][i, :, :]), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_map_average_hour_' + str(i).zfill(2) + '30UTC_' + str(start_year) + '-' + str(end_year) + '.png', saveplot = True)
+
+            make_map(var, time_series['Nmonths_map_per_hour'][i, :, :], var.upper() + ' ' + str(i).zfill(2) + ':30 UTC Nmonths', np.nanmin(time_series['Nmonths_map_per_hour'][i, :, :]), np.nanmax(time_series['Nmonths_map_per_hour'][i, :, :]), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_map_Nmonths_hour_' + str(i).zfill(2) + '30UTC_' + str(start_year) + '-' + str(end_year) + '.png', saveplot = True)
 
 
 # 2. Spatial time series averages per hour
@@ -265,9 +264,11 @@ if plot_24_profiles:
 
     for i in range(24):
 
-        plot_profile_and_NoShip_line(var, centered['mean_profile_per_hour'][i, :], centered['std_profile_per_hour'][i, :], centered['mean_NoShip_profile_per_hour_short'][i, :], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + str(i).zfill(2) + ':30 UTC average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_long_profile_average_at_' + str(i).zfill(2) + '30UTC.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
+        if not np.all(np.isnan(centered['mean_profile_per_hour'][i, :])):
 
-        plot_profile_and_NoShip_line(var, centered['mean_profile_per_hour_short'][i, :], centered['std_profile_per_hour_short'][i, :], centered['mean_NoShip_profile_per_hour_short'][i, :], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + str(i).zfill(2) + ':30 UTC average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_profile_average_at_' + str(i).zfill(2) + '30UTC.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
+            plot_profile_and_NoShip_line(var, centered['mean_profile_per_hour'][i, :], centered['std_profile_per_hour'][i, :], centered['mean_NoShip_profile_per_hour_short'][i, :], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + str(i).zfill(2) + ':30 UTC average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_long_profile_average_at_' + str(i).zfill(2) + '30UTC.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
+
+            plot_profile_and_NoShip_line(var, centered['mean_profile_per_hour_short'][i, :], centered['std_profile_per_hour_short'][i, :], centered['mean_NoShip_profile_per_hour_short'][i, :], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + str(i).zfill(2) + ':30 UTC average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_profile_average_at_' + str(i).zfill(2) + '30UTC.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
 
 
 # Plot diurnal corridor effect
