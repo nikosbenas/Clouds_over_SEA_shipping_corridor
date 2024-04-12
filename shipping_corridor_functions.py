@@ -210,7 +210,7 @@ def calculate_area_weighted_average(array, lat_array):
         raise ValueError("Input array should be either 2D or 3D.")
 
 
-def plot_time_series(dates, array, var_name, title, saveplot, output_file):
+def plot_time_series(dates, array, var_name, title, output_file, saveplot):
 
     '''
     Description:
@@ -221,8 +221,8 @@ def plot_time_series(dates, array, var_name, title, saveplot, output_file):
         - array: (list or array) Values of the time series data
         - var_name: (string) Name of the variable being plotted
         - title: (string) Title of the plot
-        - saveplot: (bool) If True, the plot will be saved to an output file
         - output_file: (string) Path to the output file for saving the plot
+        - saveplot: (bool) If True, the plot will be saved to an output file
 
     Outputs:
         - None
@@ -810,30 +810,31 @@ def plot_change_and_zero_line(var, profile_data, profile_data_std, distance, zer
     plt.close()
 
 
-def calculate_NoShip_curve(distance, profile_data, half_range, fit_order):
+def calculate_NoShip_curve(distance, profile_data, corridor_half_range, outer_half_range, fit_order):
     
     '''
     Description:
-        This function calculates the NoShip curve using a polynomial fit. The  fit uses only data within a range of 400 km to half_range km from both sides of the corridor center.
+        This function calculates the NoShip curve using a polynomial fit. The  fit uses only data within a range of 400 km to corridor_half_range km from both sides of the corridor center.
 
     Inputs:
         - distance: A 1D NumPy array representing the distance from the corridor center for each data point.
         - profile_data: A 1D NumPy array containing the original profile data.
-        - half_range: The half range in kilometers from the corridor center to define the corridor-affected range.
+        - corridor_half_range: The half range in kilometers from the corridor center to define the corridor-affected range.
+        - outer_half_range: the outer limit of the unaffected area to be used for fitiing.
         - fit_order: order of the polynomial to be fitted.
 
     Outputs:
         - y_interpolated: A 1D NumPy array representing the interpolated NoShip curve values at each distance point.                            
     '''
 
-    # Find indices of grid cells defining the range -half_range km to 
-    # half_range km from center.
-    iw = np.argmin(abs(-half_range - distance)) # index west
-    ie = np.argmin(abs(half_range - distance)) # index east
+    # Find indices of grid cells defining the range -corridor_half_range km to 
+    # corridor_half_range km from center.
+    iw = np.argmin(abs(-corridor_half_range - distance)) # index west
+    ie = np.argmin(abs(corridor_half_range - distance)) # index east
 
     # For the cubic fit, onsider only data between 400 km and 250 km from both sides of the corridor center
-    iw_end = np.argmin(abs(-400 - distance)) # index west
-    ie_start = np.argmin(abs(400 - distance)) # index east
+    iw_end = np.argmin(abs(-outer_half_range - distance)) # index west
+    ie_start = np.argmin(abs(outer_half_range - distance)) # index east
 
     x_with_gap = np.concatenate((distance[ie_start:ie], distance[iw:iw_end]))
     y_with_gap = np.concatenate((profile_data[ie_start:ie], profile_data[iw:iw_end]))
