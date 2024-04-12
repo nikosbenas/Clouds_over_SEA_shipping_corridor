@@ -15,7 +15,7 @@ import numpy as np
 import multiprocessing
 import sys
 
-from shipping_corridor_functions import calculate_NoShip_curve, calculate_NoShip_line, calculate_across_corridor_average_and_std, calculate_area_weighted_average, center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_all_hourly_profiles, plot_diurnal, plot_profile_and_NoShip_line, read_lat_lon_arrays, read_monthly_time_series
+from shipping_corridor_functions import calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_area_weighted_average, center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_all_hourly_profiles, plot_diurnal, plot_profile_and_NoShip_line, read_lat_lon_arrays, read_monthly_time_series
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 import claas_trends_functions as ctf
 from claas3_dictionaries import FileNameStart
@@ -44,7 +44,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variable to read and data folder
-var = 'lwp'
+var = 'cdnc_liq'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var + '_mmdc']
 
 # Uncertainty correlation coefficient for monthly averages
@@ -203,8 +203,10 @@ centered['std_profile_per_hour_short'] = np.array([create_short_across_corridor_
 centered['N_profile_per_hour_short'] = np.array([create_short_across_corridor_profiles(short_half_range, avg_distances, profile) for profile in centered['N_profile_per_hour']])
 
 
-# Calculate straight line to create NoShip profiles (curve in the CFC and LWP cases)
-centered['mean_NoShip_profile_per_hour'] = np.array([calculate_NoShip_curve(avg_distances, profile, 250, 3) for profile in centered['mean_profile_per_hour']])
+# Calculate curve to create NoShip profiles
+corridor_half_range = 250
+
+centered['mean_NoShip_profile_per_hour'] = np.array([calculate_NoShip_curve(avg_distances, profile, corridor_half_range, 400, 3) for profile in centered['mean_profile_per_hour']])
 
 
 # Create shorter NoShip profiles per month
@@ -218,11 +220,11 @@ corridor_effect['mean_profile_per_hour'] = centered['mean_profile_per_hour_short
 corridor_effect['std_profile_per_hour'] = centered['std_profile_per_hour_short']
 
 # ... their averages and corresponding stds, per hour
-corridor_effect['mean_per_hour'] = np.array([np.nanmean(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < 250]) for h in range(24)])
+corridor_effect['mean_per_hour'] = np.array([np.nanmean(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < corridor_half_range]) for h in range(24)])
 
-corridor_effect['std_per_hour'] = np.array([np.nanstd(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < 250]) for h in range(24)])
+corridor_effect['std_per_hour'] = np.array([np.nanstd(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < corridor_half_range]) for h in range(24)])
 
-corridor_effect['N_per_hour'] = np.array([np.round(np.nansum(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < 250]) / corridor_effect['mean_per_hour'][h]) for h in range(24)])
+corridor_effect['N_per_hour'] = np.array([np.round(np.nansum(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < corridor_half_range]) / corridor_effect['mean_per_hour'][h]) for h in range(24)])
 
 
 # Remove cases where map is not entirely covered
@@ -239,7 +241,7 @@ corridor_effect['mean_profile_per_hour'][time_series['Nmonths_mean_per_hour'] < 
 
 
 # 1. Maps of all-month averages per hour
-create_hourly_maps = True
+create_hourly_maps = False
 if create_hourly_maps:
 
     for i in range(24):
