@@ -41,7 +41,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cdnc_liq'
+var = 'cfc'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
 
 # Uncertainty correlation coefficient for monthly averages
@@ -194,7 +194,7 @@ centered['monthly_profile_unc_short'] = np.swapaxes(np.array([create_short_acros
 # Calculate curve to create NoShip profiles 
 
 corridor_half_range = 250 # Curve fitted based on th 250-400 km range from corridor center on either side. 
-core_half_range = 50 # Average corridor effect based on the central 100 km-wide area.
+core_half_range = 75 # Average corridor effect based on the central 150 km-wide area.
 
 centered['monthly_NoShip_profile_means'] = np.swapaxes(np.array([calculate_NoShip_curve(avg_distances, centered['monthly_profile_means'][:, m], corridor_half_range, 400, 3) for m in range(12)]), 0, 1)
 
@@ -227,7 +227,7 @@ if plot_monthly_profiles_in_one_plot:
     plot_12_monthly_profiles(var, month_string, var.upper() + ' across shipping corridor, monthly average', centered['monthly_profile_means_short'], centered['monthly_profile_unc_short'], avg_distances, zero_index, avg_distances_short, 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/' + var.upper() + '_12_monthly_mean_profiles_across_sc.png', plot_unc_bands = True, plot_zero_line = False, saveplot = True)
 
 
-plot_monthly_difference_profiles_separately = True
+plot_monthly_difference_profiles_separately = False
 if plot_monthly_difference_profiles_separately:
 
     for m in range(12):

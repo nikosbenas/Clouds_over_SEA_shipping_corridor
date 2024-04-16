@@ -210,19 +210,22 @@ def calculate_area_weighted_average(array, lat_array):
         raise ValueError("Input array should be either 2D or 3D.")
 
 
-def plot_time_series(dates, array, var_name, title, output_file, saveplot):
+def plot_time_series(dates, array, array_unc, var_name, title, output_file, plot_unc_band, plot_zero_line, saveplot):
 
     '''
     Description:
         Plots a time series of data with dates on the x-axis and the corresponding array values on the y-axis. Optionally, vertical dotted lines can be added at the beginning of each year. The plot includes labels for the x-axis, y-axis, and title. If specified, the plot can be saved to an output file.
 
     Inputs:
-        - dates: (list or array) Dates corresponding to the data points in the time series
-        - array: (list or array) Values of the time series data
-        - var_name: (string) Name of the variable being plotted
-        - title: (string) Title of the plot
-        - output_file: (string) Path to the output file for saving the plot
-        - saveplot: (bool) If True, the plot will be saved to an output file
+        - dates: (list or array) Dates corresponding to the data points in the time series.
+        - array: (list or array) Values of the time series data.
+        - array_unc: (list or array) Values of the time series data uncertainties.
+        - var_name: (string) Name of the variable being plotted.
+        - title: (string) Title of the plot.
+        - output_file: (string) Path to the output file for saving the plot.
+        - plot_unc_band: Boolean indicating whether to plot uncertainty bands around the main data line.
+        - plot_zero_line: Boolean indicating whether to plot a dotted grey zero line.
+        - saveplot: Boolean indicating wether to save th plot to an output file.
 
     Outputs:
         - None
@@ -238,6 +241,15 @@ def plot_time_series(dates, array, var_name, title, output_file, saveplot):
         year_start = np.datetime64(str(year), 'Y')
 
         plt.axvline(x=year_start, color='grey', linestyle='--', linewidth=0.8)
+
+    # Plot uncertainty as a light blue band around the main data line
+    if plot_unc_band:
+
+        plt.fill_between(dates, array - array_unc, array + array_unc, color = 'lightblue', alpha = 0.5, linewidth = 0)
+
+    if plot_zero_line:
+
+        plt.axhline(y = 0, linestyle = ':', color = 'k')
 
     plt.xlabel('Month')
 

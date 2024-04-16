@@ -44,7 +44,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variable to read and data folder
-var = 'cdnc_liq'
+var = 'cfc'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var + '_mmdc']
 
 # Uncertainty correlation coefficient for monthly averages
@@ -204,7 +204,9 @@ centered['N_profile_per_hour_short'] = np.array([create_short_across_corridor_pr
 
 
 # Calculate curve to create NoShip profiles
-corridor_half_range = 250
+
+corridor_half_range = 250 # Curve fitted based on th 250-400 km range from corridor center on either side. 
+core_half_range = 75 # Average corridor effect based on the central 150 km-wide area.
 
 centered['mean_NoShip_profile_per_hour'] = np.array([calculate_NoShip_curve(avg_distances, profile, corridor_half_range, 400, 3) for profile in centered['mean_profile_per_hour']])
 
@@ -220,12 +222,11 @@ corridor_effect['mean_profile_per_hour'] = centered['mean_profile_per_hour_short
 corridor_effect['std_profile_per_hour'] = centered['std_profile_per_hour_short']
 
 # ... their averages and corresponding stds, per hour
-corridor_effect['mean_per_hour'] = np.array([np.nanmean(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < corridor_half_range]) for h in range(24)])
+corridor_effect['mean_per_hour'] = np.array([np.nanmean(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < core_half_range]) for h in range(24)])
 
-corridor_effect['std_per_hour'] = np.array([np.nanstd(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < corridor_half_range]) for h in range(24)])
+corridor_effect['std_per_hour'] = np.array([np.nanstd(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < core_half_range]) for h in range(24)])
 
-corridor_effect['N_per_hour'] = np.array([np.round(np.nansum(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < corridor_half_range]) / corridor_effect['mean_per_hour'][h]) for h in range(24)])
-
+corridor_effect['N_per_hour'] = np.array([np.round(np.nansum(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < core_half_range]) / corridor_effect['mean_per_hour'][h]) for h in range(24)])
 
 # Remove cases where map is not entirely covered
 corridor_effect['mean_per_hour'][time_series['spatial_Ncells_per_hour'] < lat_claas.size] = np.nan
@@ -254,14 +255,14 @@ if create_hourly_maps:
 
 
 # 2. Spatial time series averages per hour
-plot_diurnal_spatial_averages = True
+plot_diurnal_spatial_averages = False
 if plot_diurnal_spatial_averages:
 
     plot_diurnal(var, time_series['spatial_mean_per_hour'], time_series['spatial_std_per_hour'], var.upper() + ' diurnal variation', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_diurnal_mean.png', plot_zero_line = False, saveplot = True)
 
 
 # 3. Corridor-centered plots
-plot_24_profiles = True
+plot_24_profiles = False
 if plot_24_profiles:
 
     for i in range(24):

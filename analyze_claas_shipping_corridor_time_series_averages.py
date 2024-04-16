@@ -40,7 +40,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cre_liq'
+var = 'cfc'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
 
 # Uncertainty correlation coefficient for monthly averages
@@ -156,7 +156,7 @@ centered['unc_mean'] = np.sqrt(((1 / centered['N']) * (centered['std']**2)) + un
 # Calculate curve to imitate absence of the shipping corridor
 
 corridor_half_range = 250 # Curve fitted based on th 250-400 km range from corridor center on either side. 
-core_half_range = 50 # Average corridor effect based on the central 100 km-wide area.
+core_half_range = 75 # Average corridor effect based on the central 150 km-wide area.
 
 centered['mean_NoShip'] = calculate_NoShip_curve(avg_distances, centered['mean'], corridor_half_range, 400, 3)
 
@@ -234,12 +234,15 @@ corridor_effect['monthly_N'] = np.stack([np.sum(np.isfinite(corridor_effect['mon
 # 4.4. Monthly uncertainties
 corridor_effect['monthly_mean_unc'] = np.sqrt((1 / corridor_effect['monthly_N']) * (corridor_effect['monthly_std']**2) + unc_coeff * (np.nanmean(centered['monthly_profiles_unc'], axis = 0)**2))
 
-plot_time_series(dates, corridor_effect['monthly_mean'], corridor_effect['monthly_mean_unc'], var, 'Monthly corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_time_series_corridor_effect.png', plot_unc_band = True, plot_zero_line = True, saveplot = True)
+plot_monthly_time_series = True
+if plot_monthly_time_series:
 
-smooth_effect = calculate_running_mean(corridor_effect['monthly_mean'], 12)
-smooth_effect_unc = calculate_running_mean(corridor_effect['monthly_mean_unc'], 12)
+    plot_time_series(dates, corridor_effect['monthly_mean'], corridor_effect['monthly_mean_unc'], var, 'Monthly corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_time_series_corridor_effect.png', plot_unc_band = True, plot_zero_line = True, saveplot = True)
 
-plot_time_series(dates, smooth_effect, smooth_effect_unc, var, '12-month smoothed monthly corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_time_series_corridor_effect_smooth.png', plot_unc_band = True, plot_zero_line = True, saveplot = True)
+    smooth_effect = calculate_running_mean(corridor_effect['monthly_mean'], 12)
+    smooth_effect_unc = calculate_running_mean(corridor_effect['monthly_mean_unc'], 12)
+
+    plot_time_series(dates, smooth_effect, smooth_effect_unc, var, '12-month smoothed monthly corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_time_series_corridor_effect_smooth.png', plot_unc_band = True, plot_zero_line = True, saveplot = True)
 
 # Print ALL MONTHLY PROFILES
 plot_all_monthly_profiles = False
