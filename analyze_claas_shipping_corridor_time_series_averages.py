@@ -155,7 +155,8 @@ centered['unc_mean'] = np.sqrt(((1 / centered['N']) * (centered['std']**2)) + un
 
 # Calculate curve to imitate absence of the shipping corridor
 
-corridor_half_range = 250
+corridor_half_range = 250 # Curve fitted based on th 250-400 km range from corridor center on either side. 
+core_half_range = 50 # Average corridor effect based on the central 100 km-wide area.
 
 centered['mean_NoShip'] = calculate_NoShip_curve(avg_distances, centered['mean'], corridor_half_range, 400, 3)
 
@@ -170,10 +171,10 @@ centered['unc_mean_short'] = create_short_across_corridor_profiles(short_half_ra
 corridor_effect = {}
 corridor_effect['profile'] = centered['mean_short'] - centered['mean_short_NoShip']
 corridor_effect['profile_unc'] = centered['unc_mean_short']
-corridor_effect['mean'] = np.nanmean(corridor_effect['profile'][abs(avg_distances_short) < corridor_half_range])
-corridor_effect['std'] = np.nanstd(corridor_effect['profile'][abs(avg_distances_short) < corridor_half_range])
-corridor_effect['N_points'] = np.nansum(corridor_effect['profile'][abs(avg_distances_short) < corridor_half_range]) / corridor_effect['mean']
-corridor_effect['unc_mean'] = np.sqrt(((1/corridor_effect['N_points']) * corridor_effect['std']**2) + (unc_coeff * np.nanmean(corridor_effect['profile_unc'][abs(avg_distances_short) < corridor_half_range])**2))
+corridor_effect['mean'] = np.nanmean(corridor_effect['profile'][abs(avg_distances_short) < core_half_range])
+corridor_effect['std'] = np.nanstd(corridor_effect['profile'][abs(avg_distances_short) < core_half_range])
+corridor_effect['N_points'] = np.nansum(corridor_effect['profile'][abs(avg_distances_short) < core_half_range]) / corridor_effect['mean']
+corridor_effect['unc_mean'] = np.sqrt(((1/corridor_effect['N_points']) * corridor_effect['std']**2) + (unc_coeff * np.nanmean(corridor_effect['profile_unc'][abs(avg_distances_short) < core_half_range])**2))
 
 
 # Create maps of time series mean values and uncertainties
@@ -224,21 +225,24 @@ centered['monthly_profiles_NoShip'] = np.stack([calculate_NoShip_curve(avg_dista
 corridor_effect['monthly_profiles'] = centered['monthly_profiles'] - centered['monthly_profiles_NoShip']
 corridor_effect['monthly_profiles_unc'] = centered['monthly_profiles_unc']
 
-corridor_effect['monthly_mean'] = np.stack([np.nanmean(corridor_effect['monthly_profiles'][abs(avg_distances_short) < corridor_half_range, i]) for i in range(corridor_effect['monthly_profiles'].shape[1])])
+# 4.1. Monthly means
+corridor_effect['monthly_mean'] = np.stack([np.nanmean(corridor_effect['monthly_profiles'][abs(avg_distances_short) < core_half_range, i]) for i in range(corridor_effect['monthly_profiles'].shape[1])])
+# 4.2. Monthly standard deviation
+corridor_effect['monthly_std'] = np.stack([np.nanstd(corridor_effect['monthly_profiles'][abs(avg_distances_short) < core_half_range, i]) for i in range(corridor_effect['monthly_profiles'].shape[1])])
+# 4.3. N (number of profile points used in each mean)
+corridor_effect['monthly_N'] = np.stack([np.sum(np.isfinite(corridor_effect['monthly_profiles'][abs(avg_distances_short) < core_half_range, i])) for i in range(corridor_effect['monthly_profiles'].shape[1])])
+# 4.4. Monthly uncertainties
+corridor_effect['monthly_mean_unc'] = np.sqrt((1 / corridor_effect['monthly_N']) * (corridor_effect['monthly_std']**2) + unc_coeff * (np.nanmean(centered['monthly_profiles_unc'], axis = 0)**2))
 
-plot_time_series(dates, corridor_effect['monthly_mean'], var, 'time series of mean effects', 'test_time_series.png', saveplot = True)
+plot_time_series(dates, corridor_effect['monthly_mean'], corridor_effect['monthly_mean_unc'], var, 'Monthly corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_time_series_corridor_effect.png', plot_unc_band = True, plot_zero_line = True, saveplot = True)
 
 smooth_effect = calculate_running_mean(corridor_effect['monthly_mean'], 12)
+smooth_effect_unc = calculate_running_mean(corridor_effect['monthly_mean_unc'], 12)
 
-plot_time_series(dates, smooth_effect, var, 'time series of mean effects', 'test_time_series_smooth.png', saveplot = True)
-
-# corridor_effect['std'] = np.nanstd(corridor_effect['profile'][abs(avg_distances_short) < corridor_half_range])
-# corridor_effect['N_points'] = np.nansum(corridor_effect['profile'][abs(avg_distances_short) < corridor_half_range]) / corridor_effect['mean']
-# corridor_effect['unc_mean'] = np.sqrt(((1/corridor_effect['N_points']) * corridor_effect['std']**2) + (unc_coeff * np.nanmean(corridor_effect['profile_unc'][abs(avg_distances_short) < corridor_half_range])**2))
-
+plot_time_series(dates, smooth_effect, smooth_effect_unc, var, '12-month smoothed monthly corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_time_series_corridor_effect_smooth.png', plot_unc_band = True, plot_zero_line = True, saveplot = True)
 
 # Print ALL MONTHLY PROFILES
-plot_all_monthly_profiles = True
+plot_all_monthly_profiles = False
 if plot_all_monthly_profiles:
 
     for i in range(centered['monthly_profiles'].shape[1]):
@@ -246,9 +250,3 @@ if plot_all_monthly_profiles:
         plot_profile_and_NoShip_line(var, centered['monthly_profiles'][:, i], centered['monthly_profiles_unc'][:, i], centered['monthly_profiles_NoShip'][:, i], avg_distances, zero_index, var + ' profile, ' + dates[i].strftime("%Y-%m"), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_monthly_profiles/' + var.upper() + '_long_profile_' + dates[i].strftime("%Y%m") + '.png', plot_NoShip_line=True, plot_std_band=True, saveplot=True)
 
 print('check')
-
-# for i in range(time_series['data'].shape[2]):
-
-#     centered_monthly_data.append(center_data_along_corridor(time_series['data'][:, :, i], centered['latitude_indices'], centered['longitude_indices']))
-
-# centered_monthly_data = np.array(centered_monthly_data)
