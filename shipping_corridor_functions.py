@@ -419,21 +419,25 @@ def plot_intra_annual_variation_for_two(var1, array1, unc1, var2, array2, unc2, 
 
 
 
-def calculate_running_mean(array, window_size):
+def calculate_running_mean(array, array_unc, unc_coef, window_size):
 
     '''
     Description:
         Calculates the running mean of an array using a specified window size. The running mean is computed by averaging values within a moving window centered at each element of the array. Values at the beginning and end of the array, where the window size extends beyond the array boundaries, are treated as missing values (NaN).
 
     Inputs:
-        - array: (1D NumPy array) Input array for which the running mean will be calculated
-        - window_size: (int or float) Size of the moving window for computing the mean
+        - array: (1D NumPy array) Input array for which the running mean will be calculated.
+        - array_unc: (1D NumPy array) Uncertainty values of input array elements, needed for the calculation of running mean uncertainties.
+        - unc_coef: (float) Uncertainty coefficient [0, 1] value, characterizing the correlation between uncertainty values. It is needed for the calculation of running mean uncertainties.
+        - window_size: (int or float) Size of the moving window for computing the mean.
 
     Outputs:
-        - result: (1D NumPy array) Array containing the running mean values, with NaN values at the edges where the window extends beyond the array boundaries
+        - result: (1D NumPy array) Array containing the running mean values, with NaN values at the edges where the window extends beyond the array boundaries.
+        - unc: (1D NumPy array) Array containing the propagated uncertainties of the running mean values, with NaN values at the edges where the window extends beyond the array boundaries.
     '''
     
     result = np.full_like(array, np.nan)
+    unc = np.full_like(array, np.nan)
     
     for i in range(len(result)):
         
@@ -446,8 +450,10 @@ def calculate_running_mean(array, window_size):
         end = int(i + window_size/2+1)
         
         result[i] = np.nanmean(array[start:end])
+
+        unc[i] = np.sqrt((1/window_size) * (np.nanstd(array[start:end])**2) + unc_coef * (np.nanmean(array_unc)**2))
     
-    return result        
+    return result, unc        
 
 
 def find_shipping_corridor_center_coordinates(flag_sc, lat_array, lon_array):
