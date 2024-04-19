@@ -15,7 +15,7 @@ import sys
 import numpy as np
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 from claas3_dictionaries import FileNameStart
-from shipping_corridor_functions import calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_average_corridor_value_per_month, calculate_average_profiles_per_month, calculate_monthly_mean_corridor_effect, calculate_running_mean, center_data_along_corridor, center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_change_and_zero_line, plot_time_series, read_lat_lon_arrays, read_monthly_time_series, plot_profile_and_NoShip_line
+from shipping_corridor_functions import calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_annual_average_profiles, calculate_average_corridor_value_per_month, calculate_average_profiles_per_month, calculate_temporal_mean_corridor_effect, calculate_running_mean, center_data_along_corridor, center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_change_and_zero_line, plot_time_series, read_lat_lon_arrays, read_monthly_time_series, plot_profile_and_NoShip_line
 
 
 def process_index(c):
@@ -64,9 +64,10 @@ bounding_box = [west_lon, south_lat, east_lon, north_lat]
 plot_extent = [west_lon, east_lon, south_lat, north_lat] 
 grid_extent = [west_lon, east_lon, south_lat, north_lat]
 
-# Create vector of dates for plotting
-dates = [datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d')
-         for year in range(start_year, end_year + 1) for month in range(1, 13)]
+# Create vectors of dates for plotting
+dates = {}
+dates['months'] = [datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d') for year in range(start_year, end_year + 1) for month in range(1, 13)]
+dates['years'] = [datetime(year, 1, 1) for year in range(start_year, end_year + 1)]
 
 # Define a time series dictionary to include data, mean, std, uncertainty etc.
 time_series = {}
@@ -223,22 +224,22 @@ centered['monthly_profiles_NoShip'] = np.stack([calculate_NoShip_curve(avg_dista
 corridor_effect['monthly_profiles'] = centered['monthly_profiles'] - centered['monthly_profiles_NoShip']
 corridor_effect['monthly_profiles_unc'] = centered['monthly_profiles_unc']
 
-calculate_monthly_mean_corridor_effect(unc_coeff, centered, core_half_range, avg_distances_short, corridor_effect)
+calculate_temporal_mean_corridor_effect('monthly', unc_coeff, centered, core_half_range, avg_distances_short, corridor_effect)
 
 plot_monthly_time_series = True
 if plot_monthly_time_series:
 
-    plot_time_series(dates, centered['monthly_corridor_mean'], centered['monthly_corridor_unc'], var, 'Monthly mean ' + var.upper() + ' over the corridor', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_time_series_over_corridor.png', plot_unc_band = True, plot_zero_line = False, saveplot = True)
+    plot_time_series(dates['months'], centered['monthly_corridor_mean'], centered['monthly_corridor_unc'], var, 'Monthly mean ' + var.upper() + ' over the corridor', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_monthly_time_series_over_corridor.png', plot_unc_band = True, plot_zero_line = False, saveplot = True)
 
-    plot_time_series(dates, corridor_effect['monthly_mean'], corridor_effect['monthly_mean_unc'], var, 'Monthly corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_time_series_corridor_effect.png', plot_unc_band = True, plot_zero_line = True, saveplot = True)
+    plot_time_series(dates['months'], corridor_effect['monthly_mean'], corridor_effect['monthly_mean_unc'], var, 'Monthly corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_monthly_time_series_corridor_effect.png', plot_unc_band = True, plot_zero_line = True, saveplot = True)
 
     smooth_mean, smooth_mean_unc = calculate_running_mean(centered['monthly_corridor_mean'], centered['monthly_corridor_unc'], unc_coeff, 12)
 
     smooth_effect, smooth_effect_unc = calculate_running_mean(corridor_effect['monthly_mean'], corridor_effect['monthly_mean_unc'], unc_coeff, 12)
 
-    plot_time_series(dates, smooth_mean, smooth_mean_unc, var, 'Monthly mean ' + var.upper() + ' over the corridor', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_time_series_over_corridor_smooth.png', plot_unc_band = True, plot_zero_line = False, saveplot = True)
+    plot_time_series(dates['months'], smooth_mean, smooth_mean_unc, var, 'Monthly mean ' + var.upper() + ' over the corridor', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_monthly_time_series_over_corridor_smooth.png', plot_unc_band = True, plot_zero_line = False, saveplot = True)
 
-    plot_time_series(dates, smooth_effect, smooth_effect_unc, var, '12-month smoothed monthly corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_time_series_corridor_effect_smooth.png', plot_unc_band = True, plot_zero_line = True, saveplot = True)
+    plot_time_series(dates['months'], smooth_effect, smooth_effect_unc, var, '12-month smoothed monthly corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_monthly_time_series_corridor_effect_smooth.png', plot_unc_band = True, plot_zero_line = True, saveplot = True)
 
 # Print ALL MONTHLY PROFILES
 plot_all_monthly_profiles = False
@@ -246,11 +247,38 @@ if plot_all_monthly_profiles:
 
     for i in range(centered['monthly_profiles'].shape[1]):
 
-        plot_profile_and_NoShip_line(var, centered['monthly_profiles'][:, i], centered['monthly_profiles_unc'][:, i], centered['monthly_profiles_NoShip'][:, i], avg_distances, zero_index, var + ' profile, ' + dates[i].strftime("%Y-%m"), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_monthly_profiles/' + var.upper() + '_long_profile_' + dates[i].strftime("%Y%m") + '.png', plot_NoShip_line=True, plot_std_band=True, saveplot=True)
+        plot_profile_and_NoShip_line(var, centered['monthly_profiles'][:, i], centered['monthly_profiles_unc'][:, i], centered['monthly_profiles_NoShip'][:, i], avg_distances, zero_index, var + ' profile, ' + dates['months'][i].strftime("%Y-%m"), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_monthly_profiles/' + var.upper() + '_long_profile_' + dates['months'][i].strftime("%Y%m") + '.png', plot_NoShip_line=True, plot_std_band=True, saveplot=True)
 
 # =============================================================================
 # Analysis of yearly trends
 # =============================================================================
+
+
+# Calculate annual average profiles and uncertainties
+calculate_annual_average_profiles(unc_coeff, centered)
+
+# Fit "NoShip" curves per year
+centered['annual_profiles_NoShip'] = np.stack([calculate_NoShip_curve(avg_distances, centered['annual_profiles_mean'][:, i], corridor_half_range, 400, 3) for i in range(centered['annual_profiles_mean'].shape[1])], axis = 1)
+
+# Calculate annual profiles of corridor effects
+corridor_effect['annual_profiles'] = centered['annual_profiles_mean'] - centered['annual_profiles_NoShip']
+corridor_effect['annual_profiles_unc'] = centered['annual_profiles_unc']
+
+# Calculate annual mean corridor effects
+calculate_temporal_mean_corridor_effect('annual', unc_coeff, centered, core_half_range, avg_distances_short, corridor_effect)
+
+# Plot time series of annual values and effects
+plot_time_series(dates['years'], corridor_effect['annual_mean'], corridor_effect['annual_mean_unc'], var, 'Annual corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_annual_time_series_corridor_effect.png', plot_unc_band=True, plot_zero_line=True, saveplot=True) 
+
+plot_all_annual_profiles = False
+if plot_all_annual_profiles:
+
+    for i in range(end_year - start_year + 1):
+
+        plot_profile_and_NoShip_line(var, centered['annual_profiles_mean'][:, i], centered['annual_profiles_unc'][:, i], centered['annual_profiles_mean'][:, i], avg_distances, zero_index, var.upper() + ' mean profile in ' + str(start_year + i), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_annual_profiles/' + var.upper() + '_long_profile_' + str(start_year + i) + '.png', plot_NoShip_line = False, plot_std_band = True, saveplot = False)
+
+        plot_profile_and_NoShip_line(var, centered['annual_profiles_mean'][:, i], centered['annual_profiles_unc'][:, i], centered['annual_profiles_NoShip'][:, i], avg_distances_short, zero_index, var.upper() + ' mean profile in ' + str(start_year + i), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_annual_profiles/' + var.upper() + '_profile_' + str(start_year + i) + '.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
+
 
 
 print('check')
