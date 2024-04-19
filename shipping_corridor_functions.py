@@ -1193,34 +1193,63 @@ def calculate_average_corridor_value_per_month(unc_coeff, centered, core_half_ra
     centered['monthly_corridor_unc'] = np.sqrt((1 / centered['monthly_corridor_N']) * (centered['monthly_corridor_std']**2) + unc_coeff * (np.nanmean(centered['monthly_profiles_unc'], axis = 0)**2))
 
 
-def calculate_monthly_mean_corridor_effect(unc_coeff, centered, core_half_range, avg_distances_short, corridor_effect):
+def calculate_temporal_mean_corridor_effect(temporal, unc_coeff, centered, core_half_range, avg_distances_short, corridor_effect):
 
     '''
     This function calculates monthly averages and relevant statistical properties for the corridor effect within a specified corridor core half-range. It updates a dictionary with mean, standard deviation, sample size, and uncertainty values for the monthly average corridor effect.
 
     Inputs:
+        - temporal: a string denoting the temporal resolution of averaging. It can be either 'monthly' or 'annual'.
         - unc_coeff: A float representing the uncertainty coefficient. This value is used in the uncertainty calculation.
-        - centered: A dictionary containing a key 'monthly_profiles_unc' which is a 2D numpy array of uncertainties associated with the monthly profiles.
+        - centered: A dictionary containing a key temporal + '_profiles_unc' which is a 2D numpy array of uncertainties associated with the temporal profiles.
         - core_half_range: A float representing the half-range of the corridor core.
         - avg_distances_short: A 1D numpy array of average distances west and east from the corridor center.
-        - corridor_effect: A dictionary containing the following keys:
-            'monthly_profiles': A 2D numpy array containing monthly mean profiles of corridor effect.
+        - corridor_effect: A dictionary containing the following key:
+            temporal + '_profiles': A 2D numpy array containing temporal mean profiles of corridor effect.
 
     Outputs:
         The function updates the corridor_effect dictionary with the following keys:
-            - 'monthly_mean': A 1D numpy array representing the mean of the monthly corridor effect profiles for data within the corridor core, defined by the given half-range.
-            - 'monthly_std': A 1D numpy array representing the standard deviation of the monthly corridor effect profiles within the core corridor.
-            - 'monthly_N': A 1D numpy array representing the number of non-NaN values used in each mean calculation within the corridor core.
-            - 'monthly_mean_unc': A 1D numpy array representing the combined uncertainty of the monthly mean corridor effect, calculated as the square root of the sum of squared standard deviation and the squared mean of the uncertainty data multiplied by the given uncertainty coefficient.
+            - temporal + '_mean': A 1D numpy array representing the mean of the temporal corridor effect profiles for data within the corridor core, defined by the given half-range.
+            - temporal + '_std': A 1D numpy array representing the standard deviation of the temporal corridor effect profiles within the core corridor.
+            - temporal + '_N': A 1D numpy array representing the number of non-NaN values used in each mean calculation within the corridor core.
+            - temporal + '_mean_unc': A 1D numpy array representing the combined uncertainty of the temporal mean corridor effect, calculated as the square root of the sum of squared standard deviation and the squared mean of the uncertainty data multiplied by the given uncertainty coefficient.
     '''
 
-    corridor_effect['monthly_mean'] = np.stack([np.nanmean(corridor_effect['monthly_profiles'][abs(avg_distances_short) < core_half_range, i]) for i in range(corridor_effect['monthly_profiles'].shape[1])])
+    corridor_effect[temporal + '_mean'] = np.stack([np.nanmean(corridor_effect[temporal + '_profiles'][abs(avg_distances_short) < core_half_range, i]) for i in range(corridor_effect[temporal + '_profiles'].shape[1])])
 
-    corridor_effect['monthly_std'] = np.stack([np.nanstd(corridor_effect['monthly_profiles'][abs(avg_distances_short) < core_half_range, i]) for i in range(corridor_effect['monthly_profiles'].shape[1])])
+    corridor_effect[temporal + '_std'] = np.stack([np.nanstd(corridor_effect[temporal + '_profiles'][abs(avg_distances_short) < core_half_range, i]) for i in range(corridor_effect[temporal + '_profiles'].shape[1])])
 
-    corridor_effect['monthly_N'] = np.stack([np.sum(np.isfinite(corridor_effect['monthly_profiles'][abs(avg_distances_short) < core_half_range, i])) for i in range(corridor_effect['monthly_profiles'].shape[1])])
+    corridor_effect[temporal + '_N'] = np.stack([np.sum(np.isfinite(corridor_effect[temporal + '_profiles'][abs(avg_distances_short) < core_half_range, i])) for i in range(corridor_effect[temporal + '_profiles'].shape[1])])
 
-    corridor_effect['monthly_mean_unc'] = np.sqrt((1 / corridor_effect['monthly_N']) * (corridor_effect['monthly_std']**2) + unc_coeff * (np.nanmean(centered['monthly_profiles_unc'], axis = 0)**2))
+    corridor_effect[temporal + '_mean_unc'] = np.sqrt((1 / corridor_effect[temporal + '_N']) * (corridor_effect[temporal + '_std']**2) + unc_coeff * (np.nanmean(centered[temporal + '_profiles_unc'], axis = 0)**2))
+
+
+def calculate_annual_average_profiles(unc_coeff, centered):
+
+    '''
+    This function calculates the annual average profiles of data across the corridor based on max. 12 monthly averages, as well as the associated standard deviation, number of observations, and propagated uncertainty for each year.
+
+    Inputs:
+        - unc_coeff: The uncertainty coefficient, used in the uncertainty calculation.
+        - centered: A dictionary containing the following key-value pairs:
+            - 'monthly_profiles': A 2D NumPy array of monthly profiles, where each row represents a profile and each column represents a month.
+            - 'monthly_profiles_unc': A 2D NumPy array of monthly profile uncertainties, with the same dimensions as centered['monthly_profiles'].
+
+    Outputs:
+        - The function calculates and updates the following key-value pairs in the centered dictionary:
+            - 'annual_profiles_mean': A 2D NumPy array containing the mean of the monthly profiles for each year. The array is calculated by reshaping the monthly profiles to group them into years (each group contains 12 months), and then computing the mean across the third dimension (months).
+            - 'annual_profiles_std': A 2D NumPy array containing the standard deviation of the monthly profiles for each year. The array is calculated in a similar way as annual_profiles_mean.
+            - 'annual_profiles_N': A 2D NumPy array containing the number of  non-NaN values used in the annual mean calculations.
+            - 'annual_profiles_unc': A 2D NumPy array containing the propagated uncertainty of the annual profiles for each year. 
+    '''
+
+    centered['annual_profiles_mean'] = np.nanmean(centered['monthly_profiles'].reshape((centered['monthly_profiles'].shape[0], int(centered['monthly_profiles'].shape[1] / 12), 12)), axis = 2)
+
+    centered['annual_profiles_std'] = np.nanstd(centered['monthly_profiles'].reshape((centered['monthly_profiles'].shape[0], int(centered['monthly_profiles'].shape[1] / 12), 12)), axis = 2)
+
+    centered['annual_profiles_N'] = np.nansum(centered['monthly_profiles'].reshape((centered['monthly_profiles'].shape[0], int(centered['monthly_profiles'].shape[1] / 12), 12)), axis = 2) / centered['annual_profiles_mean']
+
+    centered['annual_profiles_unc'] = np.sqrt((1/centered['annual_profiles_N'])*(centered['annual_profiles_std']**2) + unc_coeff*(np.nanmean(centered['monthly_profiles_unc'].reshape((centered['monthly_profiles_unc'].shape[0], int(centered['monthly_profiles_unc'].shape[1] / 12), 12)), axis = 2)**2))
 
 
 
