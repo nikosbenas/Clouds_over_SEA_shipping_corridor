@@ -1252,4 +1252,96 @@ def calculate_annual_average_profiles(unc_coeff, centered):
     centered['annual_profiles_unc'] = np.sqrt((1/centered['annual_profiles_N'])*(centered['annual_profiles_std']**2) + unc_coeff*(np.nanmean(centered['monthly_profiles_unc'].reshape((centered['monthly_profiles_unc'].shape[0], int(centered['monthly_profiles_unc'].shape[1] / 12), 12)), axis = 2)**2))
 
 
+def calculate_temporal_average_profiles_from_specific_months(centered, months_initials, unc_coeff):
+
+    '''
+    This function calculates the annual or specific-months average profiles of data across the corridor, based on max. 12 monthly averages (for the "annual" case), as well as the associated standard deviation, number of observations, and propagated uncertainty for each year.
+
+    Inputs:
+        - centered: A dictionary containing the following key-value pairs:
+            - 'monthly_profiles': A 2D NumPy array of monthly profiles, where each row represents a profile and each column represents a month.
+            - 'monthly_profiles_unc': A 2D NumPy array of monthly profile uncertainties, with the same dimensions as centered['monthly_profiles'].
+        - months_initials: A string containing either 'annual' or month initials, e.g. 'SON', 'ASOND', etc.
+        - unc_coeff: The uncertainty coefficient, used in the uncertainty calculation.
+
+    Outputs:
+        - The function calculates and updates the following key-value pairs in the centered dictionary:
+            - months_initials + '_profiles_mean': A 2D NumPy array containing the mean of the profiles for each year. The array is calculated by reshaping the monthly profiles to group them into years (each group contains 12 months), and then computing the mean across (part of) the third dimension (specified months).
+            - months_initials + '_profiles_std': A 2D NumPy array containing the standard deviation of the monthly profiles for each year. The array is calculated in a similar way as the months_initials + _profiles_mean array.
+            - months_initials + '_profiles_N': A 2D NumPy array containing the number of  non-NaN values used in the yearly mean calculations.
+            - months_initials + '_profiles_unc': A 2D NumPy array containing the propagated uncertainty of the yearly profiles for each year. 
+    '''
+
+
+    # Define a dictionary mapping month initials to month numbers
+    month_dict = {
+        'J': 1, 'F': 2, 'M': 3, 'A': 4, 'M': 5, 'J': 6, 'J': 7, 'A': 8,
+        'S': 9, 'O': 10, 'N': 11, 'D': 12
+    }
+    
+    # Check if months_initials is 'annual'
+    if months_initials.lower() == 'annual':
+        # Average all 12 months if the input is 'annual'
+        months_list = list(range(12))
+    else:
+        # Convert month initials to month numbers
+        months_list = [month_dict[month] - 1 for month in months_initials.upper()]
+    
+    # Get the shape of the monthly data
+    num_years = centered['monthly_profiles'].shape[1] // 12
+    
+    # Reshape the monthly data into (num_months, num_years, 12)
+    reshaped_data = centered['monthly_profiles'].reshape(centered['monthly_profiles'].shape[0], num_years, 12)
+    reshaped_data_unc = centered['monthly_profiles_unc'].reshape(centered['monthly_profiles_unc'].shape[0], num_years, 12)
+    
+    # Select the specified months for each year
+    selected_months_data = reshaped_data[:, :, months_list]
+    selected_months_data_unc = reshaped_data_unc[:, :, months_list]
+    
+    # Calculate the mean along the selected months axis 
+    centered[months_initials + '_profiles_mean'] = np.nanmean(selected_months_data, axis = 2)
+
+    centered[months_initials + '_profiles_std'] = np.nanstd(selected_months_data, axis = 2)
+    
+    centered[months_initials + '_profiles_N'] = np.nansum(selected_months_data, axis = 2) / centered[months_initials + '_profiles_mean']
+
+    centered[months_initials + '_profiles_unc'] = np.sqrt((1/centered[months_initials + '_profiles_N'])*(centered[months_initials + '_profiles_std']**2) + unc_coeff * (np.nanmean(selected_months_data_unc, axis = 2)**2))
+
+
+def analyze_annual_trends_from_specific_months(temp_res, unc_coeff, centered, avg_distances, corridor_half_range, core_half_range, avg_distances_short, corridor_effect):
+
+    '''
+    Analyzes yearly trends from specific months in the time series data, including fitting curves without the effect of ship emissions, calculating profiles of corridor effects, and determining yearly mean corridor effects.
+
+    Functionality:
+        - Calls the function calculate_temporal_average_profiles_from_specific_months to calculate temporal averages from specific months of the year in the time series data. The function modifies the centered dictionary.
+        - Fits the "NoShip" curves (curves without the effect of ship emissions) per year for the given data. This is done using the calculate_NoShip_curve function for each year of the time series. The fitted curves are stored in the centered dictionary under a new key, combining the specified temporal resolution with _profiles_NoShip.
+        - Calculates yearly profiles of corridor effects by subtracting the "NoShip" profiles from the original profiles. The resulting profiles of corridor effects and the corresponding uncertainties are stored in the corridor_effect dictionary.
+        - Calls the function calculate_temporal_mean_corridor_effect to calculate the yearly mean corridor effects, which is stored in the corridor_effect dictionary.
+
+    Input:
+        - temp_res (str): Specifies the temporal resolution ('annual' or specific month initials, e.g. 'SON'), to analyze the data.
+        - unc_coeff (float): Uncertainty coefficient used for calculations of propagated uncertainty.
+        - centered (dict): A dictionary containing data about centered monthly or annual profiles, profiles without the effect of ships, and related uncertainties.
+        - avg_distances (ndarray): Array containing average distances from the shipping corridor center.
+        - corridor_half_range (float): The half range of the corridor used for the calculations.
+        - core_half_range (float): The half range of the core corridor used for mean corridor effect calculations.
+        - avg_distances_short (ndarray): Shorter average distances in the data set.
+        - corridor_effect (dict): A dictionary to store data about corridor effects and related uncertainties.
+
+    Output:
+        - The function modifies the centered and corridor_effect dictionaries by adding and updating data related to the analysis of annual or specific-month trends. Specifically, it adds data on the "NoShip" curves, profiles of corridor effects, and annual mean corridor effects.
+    '''
+
+    calculate_temporal_average_profiles_from_specific_months(centered, temp_res, unc_coeff)
+
+    # Fit "NoShip" curves per year
+    centered[temp_res + '_profiles_NoShip'] = np.stack([calculate_NoShip_curve(avg_distances, centered[temp_res + '_profiles_mean'][:, i], corridor_half_range, 400, 3) for i in range(centered[temp_res + '_profiles_mean'].shape[1])], axis = 1)
+
+    # Calculate annual profiles of corridor effects
+    corridor_effect[temp_res + '_profiles'] = centered[temp_res + '_profiles_mean'] - centered[temp_res + '_profiles_NoShip']
+    corridor_effect[temp_res + '_profiles_unc'] = centered[temp_res + '_profiles_unc']
+
+    # Calculate annual mean corridor effects
+    calculate_temporal_mean_corridor_effect(temp_res, unc_coeff, centered, core_half_range, avg_distances_short, corridor_effect)
 
