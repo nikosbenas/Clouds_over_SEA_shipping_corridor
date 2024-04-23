@@ -15,9 +15,8 @@ import numpy as np
 import multiprocessing
 import sys
 
-from shipping_corridor_functions import calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_area_weighted_average, center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_all_hourly_profiles, plot_diurnal, plot_profile_and_NoShip_line, read_lat_lon_arrays, read_monthly_time_series
+from shipping_corridor_functions import block_average, calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_area_weighted_average, center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_all_hourly_profiles, plot_diurnal, plot_profile_and_NoShip_line, read_lat_lon_arrays, read_monthly_time_series
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
-import claas_trends_functions as ctf
 from claas3_dictionaries import FileNameStart
 import pvlib
 
@@ -123,7 +122,7 @@ time_series['all_data'] = read_monthly_time_series(var + '_mmdc', data_folder, s
 flag_sc = np.load('flags_shipping_corridor_2.npy')
 
 # Match the reduced resolution of monthy diurnal data
-flag_sc = ctf.block_average(flag_sc, 5)
+flag_sc = block_average(flag_sc, 5)
 
 sc_centlat, sc_centlon = find_shipping_corridor_center_coordinates(flag_sc, lat_claas, lon_claas)
 

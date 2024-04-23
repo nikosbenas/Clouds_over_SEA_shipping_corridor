@@ -43,6 +43,36 @@ def find_bounding_box_indices(bounding_box, lat_array, lon_array):
     return istart, iend, jstart, jend
 
 
+def block_average(array, block_size):
+
+    '''
+    Description:
+        This function downsamples a 2D numpy array by averaging blocks of a specified size.
+
+    Inputs:
+        - array: The input 2D numpy array to be downsampled.
+        - block_size (int or float): The size of the blocks (both rows and columns) over which to average the array.
+
+    Output:
+        - The downsampled 2D array where each element is the average of a block of size (block_size, block_size) from the input array. The dimensions of the output array are (nrows_blocks, ncols_blocks).
+    '''
+    
+    # Number of rows and columns in the array
+    nrows, ncols = array.shape
+    
+    # Calculate number of blocks in rows and columns
+    nrows_blocks = nrows // block_size
+    ncols_blocks = ncols // block_size
+
+    # Reshape the array into blocks of size (block_size, block_size)
+    arr_reshaped =\
+        (array[:nrows_blocks*block_size, :ncols_blocks*block_size].
+         reshape(nrows_blocks, block_size, ncols_blocks, block_size))
+    
+    # Average the blocks along the last two axes to get downsampled array
+    return arr_reshaped.mean(axis=(1, 3))
+
+
 def read_lat_lon_arrays(input_file):
 
     '''
