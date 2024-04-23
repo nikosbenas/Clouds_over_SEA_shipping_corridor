@@ -15,7 +15,7 @@ import sys
 import numpy as np
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 from claas3_dictionaries import FileNameStart
-from shipping_corridor_functions import analyze_annual_trends_from_specific_months, calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_annual_average_profiles, calculate_average_corridor_value_per_month, calculate_average_profiles_per_month, calculate_temporal_mean_corridor_effect, calculate_running_mean, center_data_along_corridor, center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_change_and_zero_line, plot_time_series, read_lat_lon_arrays, read_monthly_time_series, plot_profile_and_NoShip_line
+from shipping_corridor_functions import analyze_annual_trends_from_specific_months, calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_average_corridor_value_per_month, calculate_average_profiles_per_month, calculate_temporal_mean_corridor_effect, calculate_running_mean, center_data_along_corridor, center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_change_and_zero_line, plot_time_series, read_lat_lon_arrays, read_monthly_time_series, plot_profile_and_NoShip_line
 
 
 def process_index(c):
@@ -40,7 +40,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cdnc_liq'
+var = 'cth'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
 
 # Uncertainty correlation coefficient for monthly averages
@@ -226,7 +226,7 @@ corridor_effect['monthly_profiles_unc'] = centered['monthly_profiles_unc']
 
 calculate_temporal_mean_corridor_effect('monthly', unc_coeff, centered, core_half_range, avg_distances_short, corridor_effect)
 
-plot_monthly_time_series = False
+plot_monthly_time_series = True
 if plot_monthly_time_series:
 
     plot_time_series(dates['months'], centered['monthly_corridor_mean'], centered['monthly_corridor_unc'], var, 'Monthly mean ' + var.upper() + ' over the corridor', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_monthly_time_series_over_corridor.png', plot_unc_band = True, plot_zero_line = False, saveplot = True)
@@ -253,22 +253,23 @@ if plot_all_monthly_profiles:
 # Analysis of yearly trends
 # =============================================================================
 
-temp_res = 'SON' # Temporal resolution
+temporal_resolutions = ['annual', 'SON']
 
-analyze_annual_trends_from_specific_months(temp_res, unc_coeff, centered, avg_distances, corridor_half_range, core_half_range, avg_distances_short, corridor_effect)
+for temp_res in temporal_resolutions:
 
-# Plot time series of annual values and effects
-plot_time_series(dates['years'], corridor_effect[temp_res + '_mean'], corridor_effect[temp_res + '_mean_unc'], var, temp_res + ' corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_' + temp_res + '_time_series_corridor_effect.png', plot_unc_band=True, plot_zero_line=True, saveplot=True) 
+    analyze_annual_trends_from_specific_months(temp_res, unc_coeff, centered, avg_distances, corridor_half_range, core_half_range, avg_distances_short, corridor_effect)
 
-plot_all_annual_profiles = True
-if plot_all_annual_profiles:
+    # Plot time series of annual values and effects
+    plot_time_series(dates['years'], corridor_effect[temp_res + '_mean'], corridor_effect[temp_res + '_mean_unc'], var, temp_res + ' corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_' + temp_res + '_time_series_corridor_effect.png', plot_unc_band=True, plot_zero_line=True, saveplot=True) 
 
-    for i in range(end_year - start_year + 1):
+    plot_all_annual_profiles = True
+    if plot_all_annual_profiles:
 
-        plot_profile_and_NoShip_line(var, centered[temp_res + '_profiles_mean'][:, i], centered[temp_res + '_profiles_unc'][:, i], centered[temp_res + '_profiles_mean'][:, i], avg_distances, zero_index, var.upper() + ' mean profile in ' + str(start_year + i), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_annual_profiles/' + var.upper() + '_' + temp_res + '_long_profile_' + str(start_year + i) + '.png', plot_NoShip_line = False, plot_std_band = True, saveplot = True)
+        for i in range(end_year - start_year + 1):
 
-        plot_profile_and_NoShip_line(var, centered[temp_res + '_profiles_mean'][:, i], centered[temp_res + '_profiles_unc'][:, i], centered[temp_res + '_profiles_NoShip'][:, i], avg_distances_short, zero_index, var.upper() + ' mean profile in ' + str(start_year + i), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_annual_profiles/' + var.upper() + '_' + temp_res + '_profile_' + str(start_year + i) + '.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
+            plot_profile_and_NoShip_line(var, centered[temp_res + '_profiles_mean'][:, i], centered[temp_res + '_profiles_unc'][:, i], centered[temp_res + '_profiles_mean'][:, i], avg_distances, zero_index, var.upper() + ' mean profile in ' + str(start_year + i), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_annual_profiles/' + var.upper() + '_' + temp_res + '_long_profile_' + str(start_year + i) + '.png', plot_NoShip_line = False, plot_std_band = True, saveplot = True)
 
+            plot_profile_and_NoShip_line(var, centered[temp_res + '_profiles_mean'][:, i], centered[temp_res + '_profiles_unc'][:, i], centered[temp_res + '_profiles_NoShip'][:, i], avg_distances_short, zero_index, var.upper() + ' mean profile in ' + str(start_year + i), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_annual_profiles/' + var.upper() + '_' + temp_res + '_profile_' + str(start_year + i) + '.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
 
 
 print('check')
