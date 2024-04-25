@@ -40,7 +40,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cot_liq'
+var = 'cdnc_liq'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
 
 # Uncertainty correlation coefficient for monthly averages
@@ -68,6 +68,22 @@ grid_extent = [west_lon, east_lon, south_lat, north_lat]
 dates = {}
 dates['months'] = [datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d') for year in range(start_year, end_year + 1) for month in range(1, 13)]
 dates['years'] = [datetime(year, 1, 1) for year in range(start_year, end_year + 1)]
+
+# Months dictionary 
+month_string = {
+    1: "January",
+    2: "February",
+    3: "March",
+    4: "April",
+    5: "May",
+    6: "June",
+    7: "July",
+    8: "August",
+    9: "September",
+    10: "October",
+    11: "November",
+    12: "December"
+}
 
 # Define a time series dictionary to include data, mean, std, uncertainty etc.
 time_series = {}
@@ -252,29 +268,31 @@ if plot_all_monthly_profiles:
 # Compare maps of averages before and after 2020
 # =============================================================================
 
-time_series['mean_before_2020'], _, _, time_series['unc_mean_before_2020'] = calculate_map_of_time_series_means(unc_coeff, time_series['data'], time_series['unc'], 2004, 1, 2019, 12, start_year) 
+compare_maps_of_averages_before_and_after_2020 = False
+if compare_maps_of_averages_before_and_after_2020:
 
-time_series['mean_after_2020'], _, _, time_series['unc_mean_after_2020'] = calculate_map_of_time_series_means(unc_coeff, time_series['data'], time_series['unc'], 2021, 1, 2022, 12, start_year)
+    time_series['mean_before_2020'], _, _, time_series['unc_mean_before_2020'] = calculate_map_of_time_series_means(unc_coeff, time_series['data'], time_series['unc'], 2004, 1, 2019, 12, start_year) 
 
-time_series['diff_after-before_2020'] = time_series['mean_after_2020'] - time_series['mean_before_2020']
+    time_series['mean_after_2020'], _, _, time_series['unc_mean_after_2020'] = calculate_map_of_time_series_means(unc_coeff, time_series['data'], time_series['unc'], 2020, 1, 2023, 12, start_year)
 
-time_series['overlap_after-before_2020'] = find_overlap(time_series['mean_before_2020'], time_series['unc_mean_before_2020'], time_series['mean_after_2020'], time_series['unc_mean_after_2020'])
+    time_series['diff_after-before_2020'] = time_series['mean_after_2020'] - time_series['mean_before_2020']
 
-time_series['significance_after-before_2020'] = check_significance_of_difference(time_series['mean_before_2020'], time_series['unc_mean_before_2020'], time_series['mean_after_2020'], time_series['unc_mean_after_2020'])
+    time_series['overlap_after-before_2020'] = find_overlap(time_series['mean_before_2020'], time_series['unc_mean_before_2020'], time_series['mean_after_2020'], time_series['unc_mean_after_2020'])
+
+    time_series['significance_after-before_2020'] = check_significance_of_difference(time_series['mean_before_2020'], time_series['unc_mean_before_2020'], time_series['mean_after_2020'], time_series['unc_mean_after_2020'])
 
 
-limit = np.max([np.abs(np.nanmin(time_series['diff_after-before_2020'])), np.abs(np.nanmax(time_series['diff_after-before_2020']))])
+    limit = np.max([np.abs(np.nanmin(time_series['diff_after-before_2020'])), np.abs(np.nanmax(time_series['diff_after-before_2020']))])
 
-make_map(var, time_series['diff_after-before_2020'], var.upper() + ' after-before 2020', -limit, limit, grid_extent, plot_extent, 'RdBu_r', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_difference_after-before_2020.png', saveplot = True)
+    make_map(var, time_series['diff_after-before_2020'], var.upper() + ' after-before 2020', -limit, limit, grid_extent, plot_extent, 'RdBu_r', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_difference_after-before_2020.png', saveplot = True)
 
-plot_data_with_mask(var, time_series['diff_after-before_2020'], time_series['significance_after-before_2020'], var.upper() + ' after-before 2020', -limit, limit, grid_extent, plot_extent, 'RdBu_r', 'Greys', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_difference_after-before_2020_significance.png', saveplot = True)
+    plot_data_with_mask(var, time_series['diff_after-before_2020'], time_series['significance_after-before_2020'], var.upper() + ' after-before 2020', -limit, limit, grid_extent, plot_extent, 'RdBu_r', 'Greys', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_difference_after-before_2020_significance.png', saveplot = True)
 
 # =============================================================================
 # Analysis of yearly trends
 # =============================================================================
 
 analyze_yearly_trends = False
-
 if analyze_yearly_trends:
 
     temporal_resolutions = ['annual', 'SON']
@@ -295,5 +313,21 @@ if analyze_yearly_trends:
 
                 plot_profile_and_NoShip_line(var, centered[temp_res + '_profiles_mean'][:, i], centered[temp_res + '_profiles_unc'][:, i], centered[temp_res + '_profiles_NoShip'][:, i], avg_distances_short, zero_index, var.upper() + ' mean profile in ' + str(start_year + i), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_annual_profiles/' + var.upper() + '_' + temp_res + '_profile_' + str(start_year + i) + '.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
 
+
+# =============================================================================
+# Analysis of 12 monthly trends
+# =============================================================================
+
+centered['12_corridor_mean_time_series'] =  centered['monthly_corridor_mean'].reshape(int(len(centered['monthly_corridor_mean']) / 12), 12) 
+centered['12_corridor_mean_unc_time_series'] =  centered['monthly_corridor_unc'].reshape(int(len(centered['monthly_corridor_unc']) / 12), 12) 
+
+corridor_effect['12_time_series_mean'] = corridor_effect['monthly_mean'].reshape(int(len(corridor_effect['monthly_mean']) / 12), 12)
+corridor_effect['12_time_series_unc'] = corridor_effect['monthly_mean_unc'].reshape(int(len(corridor_effect['monthly_mean_unc']) / 12), 12)
+
+for i in range(12):
+
+    plot_time_series(dates['years'], centered['12_corridor_mean_time_series'][:, i], centered['12_corridor_mean_unc_time_series'][:, i], var, month_string[i+1] + ' mean ' + var.upper() + ' over the corridor', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_time_series_over_corridor_month_' + str(i+1).zfill(2) + '.png', plot_unc_band=True, plot_zero_line=False, saveplot=True)
+
+    plot_time_series(dates['years'], corridor_effect['12_time_series_mean'][:, i], corridor_effect['12_time_series_unc'][:, i], var, month_string[i+1] + ' corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_time_series_corridor_effect_month_' + str(i+1).zfill(2) + '.png', plot_unc_band=True, plot_zero_line=True, saveplot=True)
 
 print('check')
