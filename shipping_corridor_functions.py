@@ -4,6 +4,7 @@ import os
 import geopy.distance as gd
 import h5py
 from matplotlib import pyplot as plt
+from matplotlib.colors import BoundaryNorm, ListedColormap
 import matplotlib.pyplot as plt
 from netCDF4 import Dataset
 import numpy as np
@@ -715,7 +716,7 @@ def make_map(var, data_array, title, minval, maxval, grid_extent, plot_extent, c
         - maxval: Maximum value of the color scale.
         - grid_extent: A list specifying the extent of the grid (format: [lon_min, lon_max, lat_min, lat_max]).
         - plot_extent: A list specifying the geographical extent of the plot (format: [lon_min, lon_max, lat_min, lat_max]).
-        - cmap: A Matplotlib colormap object representing the colormap to be used for the plot.
+        - cmap: A Matplotlib colormap object representing the colormap to be used for the plot. Can be 'viridis' for continuous values, 'RdBu_r' for diverging.
         - ext: A string indicating the extension style for the colorbar (e.g., 'both', 'min', 'max', 'neither').
         - filename: A string specifying the filename for saving the plot.
         - saveplot: A boolean indicating whether to save the plot as an image file.
@@ -733,22 +734,9 @@ def make_map(var, data_array, title, minval, maxval, grid_extent, plot_extent, c
     ax.set_extent(plot_extent)
     
     # Add a colorbar
-    # cbar_ax = fig.add_axes([0.95, 0.35, 0.03, 0.3])
     cbar = fig.colorbar(im, shrink = 0.6, extend = ext)#, cax=cbar_ax)
     cbar.set_label('[' + varUnits[var] + ']')
-    
-    # Draw rectangle
-    # rect = patches.Rectangle((grid_extent[0], grid_extent[2]),
-    #                           grid_extent[1] - grid_extent[0],
-    #                           grid_extent[3] - grid_extent[2],
-    #                           linewidth=1, edgecolor='orange', facecolor='none')
-    
-    # rect = patches.Rectangle((-10, -20),
-    #                           10 - -10,
-    #                           -10 - -20,
-    #                           linewidth=1, edgecolor='orange', facecolor='none')
-    # ax.add_patch(rect)
-    
+
     plt.tight_layout()
     
     if saveplot:
@@ -1375,3 +1363,106 @@ def analyze_annual_trends_from_specific_months(temp_res, unc_coeff, centered, av
     # Calculate annual mean corridor effects
     calculate_temporal_mean_corridor_effect(temp_res, unc_coeff, centered, core_half_range, avg_distances_short, corridor_effect)
 
+
+def calculate_map_of_time_series_means(unc_coeff, data, data_unc, iyear, imonth, eyear, emonth, first_year):
+
+    '''
+    Description:
+        This function calculates the mean, standard deviation, number of values and mean uncertainty from a given 3D array (data) of time series data, as well as an associated array of uncertainties (data_unc). The function returns the calculated values.
+
+    Input:
+        - unc_coeff: A numerical coefficient used in the uncertainty calculation.
+        - data: A 3D NumPy array representing time series data, with the third dimension representing time.
+        - data_unc: A 3D NumPy array representing uncertainties associated with the time series data.
+        - iyear, imonth: start year and month for calculations.
+        - eyear, emonth: end year and month for calculations.
+        - first_year: first year of the entire time series.
+
+    Output:
+        - mean: A 2D array representing the mean values of the input data along the time dimension.
+        - std: A 2D array representing the standard deviation of the input data along the time dimension.
+        - N: A 2D array representing the count of non-NaN values used in the mean calculation for each element in the input data along the time dimension.
+        - unc_mean: A 2D array representing the propagated uncertainty of the mean, given unc_coeff, std, and data_unc.
+    '''
+
+    # Find start and end indices for averaging
+    si = (iyear - first_year) * 12 + (imonth - 1)
+    ei = (eyear - first_year) * 12 + emonth
+
+    mean = np.nanmean(data[:, :, si:ei], axis = 2)
+    std = np.nanstd(data[:, :, si:ei], axis = 2)
+    N = np.round(np.nansum(data[:, :, si:ei], axis = 2) / mean).astype(int)
+    unc_mean = np.sqrt(((1 / N) * (std**2)) + unc_coeff * (np.nanmean(data_unc[:, :, si:ei])**2))
+
+    return mean, std, N, unc_mean
+
+
+def find_overlap(array1, unc1, array2, unc2):
+
+    # Calculate the lower and upper bounds for each cell in both arrays
+    lower1 = array1 - unc1
+    upper1 = array1 + unc1
+    
+    lower2 = array2 - unc2
+    upper2 = array2 + unc2
+    
+    # Check for overlap at each grid cell
+    # Overlap occurs if max of the lower bounds <= min of the upper bounds
+    overlap = (np.maximum(lower1, lower2) <= np.minimum(upper1, upper2))
+    
+    return overlap
+
+
+def check_significance_of_difference(array1, unc1, array2, unc2):
+
+    # Calculate the absolute difference between the two arrays
+    abs_diff = np.abs(array2 - array1)
+    
+    # Calculate the combined uncertainty
+    unc_comb = np.sqrt(unc1**2 + unc2**2)
+    
+    significant = abs_diff >= unc_comb
+
+    return significant
+
+def plot_data_with_mask(var, data_array, bool_array, title, minval, maxval, grid_extent, plot_extent, cmap_color, cmap_grey, ext, filename, saveplot):
+
+    # Create the plot
+    fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
+
+    # Set the title
+    ax.set_title(title)
+
+    # Masked arrays for True and False cases
+    masked_data_false = np.ma.masked_where(bool_array, data_array)
+    masked_data_true = np.ma.masked_where(~bool_array, data_array)
+
+    # Plot False cases using grayscale colormap
+    im_grey = ax.imshow(masked_data_false, cmap=cmap_grey, vmin=minval, vmax=maxval, extent=grid_extent, transform=ccrs.PlateCarree())
+
+    # Plot True cases using color colormap
+    im_color = ax.imshow(masked_data_true, cmap=cmap_color, vmin=minval, vmax=maxval, extent=grid_extent, transform=ccrs.PlateCarree())
+
+    # Add coastlines
+    ax.add_feature(cf.COASTLINE)
+
+    # Set the plot extent
+    ax.set_extent(plot_extent)
+
+    # Add a single colorbar using the color colormap
+    cbar = fig.colorbar(im_color, shrink=0.6, extend=ext)
+    cbar.set_label(f'[{varUnits[var]}]')
+
+    # Add colorbars for both greyscale and color portions
+    # cbar_grey = fig.colorbar(im_grey, shrink=0.6, extend=ext, orientation='vertical', pad=0.05)
+    
+
+    # Adjust the layout
+    plt.tight_layout()
+
+    # Save the plot if required
+    if saveplot:
+        plt.savefig(filename, bbox_inches='tight', dpi=300)
+
+    # Close the plot
+    plt.close()
