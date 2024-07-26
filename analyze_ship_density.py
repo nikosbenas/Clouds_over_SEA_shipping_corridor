@@ -13,12 +13,19 @@ Created on Fri Jun 16 10:08:25 2023
 
 @author: benas
 """
+from matplotlib import pyplot as plt
+from matplotlib.patches import Rectangle
 import rasterio
 import numpy as np
 import sys
-sys.path.append('/usr/people/benas/Documents/CMSAF/python_modules/')
+sys.path.append('/usr/people/benas/Documents/CMSAF/Old/python_modules/')
 from modis_python_functions import map_l3_var as create_map
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
+from claas3_dictionaries import varUnits
+import cartopy.crs as ccrs
+import cartopy.feature as cf
+from matplotlib.colors import LinearSegmentedColormap
+
 
 
 def get_rowcol_from_latlon(lat, lon, filename):
@@ -135,6 +142,69 @@ def average_grid_cells(array, block_size):
     
     return block_averages
 
+def make_sc_map(var, data_array, bbox, title, minval, maxval, grid_extent, plot_extent, cmap, ext, filename, saveplot):
+    
+    '''
+    Description:
+        This function generates a map plot using the provided array data, with customizable settings such as title, colorbar, and extent. It utilizes Matplotlib and Cartopy for plotting geographical data.
+
+    Inputs:
+        - var: A string with the name of the variable.
+        - data_array: A 2D NumPy array containing the data to be plotted on the map.
+        - title: A string representing the title of the plot.
+        - minval: Minimum value of the color scale.
+        - maxval: Maximum value of the color scale.
+        - grid_extent: A list specifying the extent of the grid (format: [lon_min, lon_max, lat_min, lat_max]).
+        - plot_extent: A list specifying the geographical extent of the plot (format: [lon_min, lon_max, lat_min, lat_max]).
+        - cmap: A Matplotlib colormap object representing the colormap to be used for the plot. Can be 'viridis' for continuous values, 'RdBu_r' for diverging.
+        - ext: A string indicating the extension style for the colorbar (e.g., 'both', 'min', 'max', 'neither').
+        - filename: A string specifying the filename for saving the plot.
+        - saveplot: A boolean indicating whether to save the plot as an image file.
+
+    Outputs:
+        - None
+    '''
+
+    # Define a custom colormap ranging from light blue to dark blue
+    colors = ['#E0FFFF', '#0000FF']  # light blue to dark blue
+    cmap_name = 'light_to_dark_blue'
+    cmap = LinearSegmentedColormap.from_list(cmap_name, colors, N=256)
+
+    fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
+    
+    # Add land and ocean features
+    ax.add_feature(cf.LAND, zorder=1, edgecolor='black')
+    # ax.add_feature(cf.OCEAN, zorder=0)
+
+    ax.set_title(title)
+    im = ax.imshow(data_array, vmin=minval, vmax=maxval, cmap=cmap,
+                   extent=grid_extent, transform=ccrs.PlateCarree())
+    ax.add_feature(cf.COASTLINE)
+    ax.set_extent(plot_extent)
+    
+    rect = Rectangle(
+            (bbox[0], bbox[2]),   # Bottom-left corner (lon_min, lat_min)
+            bbox[1] - bbox[0],    # Width (lon_max - lon_min)
+            bbox[3] - bbox[2],    # Height (lat_max - lat_min)
+            linewidth=2, 
+            edgecolor='red', 
+            facecolor='none',
+            transform=ccrs.PlateCarree()
+        )
+    ax.add_patch(rect)
+    
+    # Add grid lines
+    gl = ax.gridlines(draw_labels=True, crs=ccrs.PlateCarree(), color='gray', linestyle='--', linewidth=0.5)
+    gl.top_labels = False
+    gl.right_labels = False
+
+    plt.tight_layout()
+    
+    if saveplot:
+
+        plt.savefig(filename, bbox_inches='tight', dpi=300)
+        
+    plt.close()
 
 # =============================================================================
 # Read lat, lon and ship density at region of interest
@@ -146,12 +216,25 @@ geotiff_filename = '/nobackup/users/benas/Ship_Density/shipdensity_global.tif'
 # Lats and lons at four corners of region: ul, ur, lr, ll
 # toplat = -10; bottomlat = -35
 # leftlon = -10; rightlon = 20 
-toplat = -10; bottomlat = -20
-leftlon = -10; rightlon = 10 
+
+# Wider area
+# toplat = 0; bottomlat = -30
+# leftlon = -20; rightlon = 20
+
+toplat = -8; bottomlat = -22
+leftlon = -15; rightlon = 15
+
+# Focus area
+# toplat = -10; bottomlat = -20
+# leftlon = -10; rightlon = 10 
+
+# For make_map function:
+# [lon.min, lon.max, lat.min, lat.max]
+plot_extent = [leftlon, rightlon, bottomlat, toplat] 
+grid_extent = [leftlon, rightlon, bottomlat, toplat]
 
 lats = [toplat, toplat, bottomlat, bottomlat]
 lons = [leftlon, rightlon, rightlon, leftlon]
-del toplat, bottomlat, leftlon, rightlon
 
 rows = []; cols = []
 for i in range(len(lats)):
@@ -219,13 +302,15 @@ del new_shape, repeat_factor, data_for_flag
 # =============================================================================
 
 outfile = 'Figures/Flags_shipping_corridor.png'
-create_map(lat_reduced, lon_reduced, flag_reduced, 0, 1, 
-            'Ship density flag from mean + 1 std', '-', 'Reds', 'neither', 
-            outfile, saveplot = False)
+# create_map(lat_reduced, lon_reduced, flag_reduced, 0, 1, 
+            # 'Ship density flag from mean + 1 std', '-', 'Reds', 'neither', 
+            # outfile, saveplot = True)
+
+make_sc_map('CAL', flag_reduced, [-10, 10, -20, -10], 'Shipping corridors in the SE Atlantic', 0, 1, grid_extent, plot_extent, 'Blues', 'neither', outfile, saveplot=True)
 
 # =============================================================================
 # Save flag array to npy file
 # =============================================================================
 
-outfile = 'flags_shipping_corridor_2.npy'
-np.save(outfile, flag_reduced)
+# outfile = 'flags_shipping_corridor_2.npy'
+# np.save(outfile, flag_reduced)
