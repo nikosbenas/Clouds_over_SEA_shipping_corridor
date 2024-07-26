@@ -10,7 +10,7 @@ from netCDF4 import Dataset
 import numpy as np
 import sys
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
-from claas3_dictionaries import varUnits
+from claas3_dictionaries import varUnits, varSymbol
 import cartopy.crs as ccrs
 import cartopy.feature as cf
 from scipy.interpolate import interp1d
@@ -164,7 +164,8 @@ def read_monthly_time_series(var, data_folder, start_year, end_year, istart, ien
     else:
         var_data = np.dstack(var_data)
 
-    # Replace fill value with nan
+    # Replace fill value with nan (works only with floats)
+    var_data = var_data.astype(float)
     var_data[var_data == fill_value] = np.nan
 
     # Adjust units of some variables
@@ -264,6 +265,15 @@ def plot_time_series(dates, array, array_unc, var_name, title, output_file, plot
 
     fig = plt.figure()
 
+    # Update some tick label numbers to become bigger
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams.update({'lines.linewidth': 1.8})
+    plt.rcParams.update({'axes.linewidth': 1.8})
+    plt.rcParams.update({'xtick.major.width': 1.8})
+    plt.rcParams.update({'xtick.major.size': 4})
+    plt.rcParams.update({'ytick.major.width': 1.8})
+    plt.rcParams.update({'ytick.major.size': 4})
+
     plt.plot(dates, array, color = 'b')
 
     # Add vertical dotted lines at the beginning of each year
@@ -284,7 +294,10 @@ def plot_time_series(dates, array, array_unc, var_name, title, output_file, plot
 
     plt.xlabel('Month')
 
-    plt.ylabel(var_name.upper() + ' [' + varUnits[var_name] + ']')
+    if plot_zero_line: # Plotting corridor effect
+        plt.ylabel('$\Delta$' + varSymbol[var_name] + ' [' + varUnits[var_name] + ']', fontsize=14)
+    else: # Plotting absolute values
+        plt.ylabel(varSymbol[var_name] + ' [' + varUnits[var_name] + ']', fontsize=14)
 
     plt.title(title)
 
@@ -294,7 +307,7 @@ def plot_time_series(dates, array, array_unc, var_name, title, output_file, plot
     plt.close()
 
 
-def plot_two_time_series(dates, var_name_1, array_1, var_name_2, array_2, title, saveplot, output_file):
+def plot_two_time_series(dates, var_name_1, array_1, array_1_unc, var_name_2, array_2, array_2_unc, title, plot_unc_bands, saveplot, output_file):
 
     '''
     Description:
@@ -316,24 +329,36 @@ def plot_two_time_series(dates, var_name_1, array_1, var_name_2, array_2, title,
 
     fig, ax1 = plt.subplots()
 
+    # Increase tick label size
+    ax1.tick_params(axis='x', length=6, width=1.2, labelsize=10)  
+    ax1.tick_params(axis='y', length=6, width=1.8, labelsize=14)  
+
     ax1.set_xlabel('Month')
 
-    ax1.set_ylabel(varUnits[var_name_1])
+    ax1.set_ylabel(varSymbol[var_name_1] + ' [' + varUnits[var_name_1] +']', color = 'orange')
 
     line1, = ax1.plot(dates, array_1, color = 'orange', label = var_name_1.upper())
 
+    if plot_unc_bands:
+
+        ax1.fill_between(dates, array_1 - array_1_unc, array_1 + array_1_unc, color = 'moccasin', alpha = 0.5, linewidth = 0)
+
     ax2 = ax1.twinx()
 
-    ax2.set_ylabel(varUnits[var_name_2])
+    # Increase tick label size
+    ax2.tick_params(axis='x', length=6, width=1.2, labelsize=10)  
+    ax2.tick_params(axis='y', length=6, width=1.8, labelsize=14)  
+
+    ax2.set_ylabel(varSymbol[var_name_2] + ' [' + varUnits[var_name_2] +']', color = 'blue')
 
     line2, = ax2.plot(dates, array_2, color = 'blue', label = var_name_2.upper())
 
+    if plot_unc_bands:
+
+        ax2.fill_between(dates, array_2 - array_2_unc, array_2 + array_2_unc, color = 'lightblue', alpha = 0.5, linewidth = 0)
+
     # Combine handles and labels from both axes
     lines = [line1, line2]
-    labels = [line.get_label() for line in lines]
-
-    # Create a single legend for both lines
-    ax1.legend(lines, labels, loc='best')
 
     # Set y-axis tick labels color to match corresponding lines
     for line, ax in zip(lines, [ax1, ax2]):
@@ -373,6 +398,15 @@ def plot_intra_annual_variation(var, array, unc, title, outfile, plot_std_band, 
     '''
 
     fig = plt.figure()
+
+    # Update some tick label numbers to become bigger
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams.update({'lines.linewidth': 1.8})
+    plt.rcParams.update({'axes.linewidth': 1.8})
+    plt.rcParams.update({'xtick.major.width': 1.8})
+    plt.rcParams.update({'xtick.major.size': 4})
+    plt.rcParams.update({'ytick.major.width': 1.8})
+    plt.rcParams.update({'ytick.major.size': 4})
 
     plt.plot(np.arange(1,13), array, color = 'k')
 
@@ -418,26 +452,53 @@ def plot_intra_annual_variation_for_two(var1, array1, unc1, var2, array2, unc2, 
 
     fig, ax1 = plt.subplots()
 
+    # Update some tick label numbers to become bigger
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams.update({'lines.linewidth': 1.8})
+    plt.rcParams.update({'axes.linewidth': 1.8})
+    plt.rcParams.update({'xtick.major.width': 1.8})
+    plt.rcParams.update({'xtick.major.size': 4})
+    plt.rcParams.update({'ytick.major.width': 1.8})
+    plt.rcParams.update({'ytick.major.size': 4})
+
+    month_labels = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
+
     color1 = 'tab:blue'
-    ax1.set_xlabel('Month')
-    ax1.set_ylabel(var1.upper() + ' [' + varUnits[var1] + ']', color=color1)
+    ax1.set_xlabel('Month', fontsize=14)
+    if plot_zero_line:
+        ax1.set_ylabel('$\Delta$' + varSymbol[var1] + ' [' + varUnits[var1] + ']', color=color1, fontsize=14)
+    else:
+        ax1.set_ylabel(varSymbol[var1] + ' [' + varUnits[var1] + ']', color=color1, fontsize=14)
     ax1.plot(np.arange(1,13), array1, color=color1)
+    # Set the x-ticks and x-tick labels
+    ax1.set_xticks(np.arange(1, 13))
+    ax1.set_xticklabels(month_labels)
     if plot_std_band:
         ax1.fill_between(np.arange(1,13), array1 - unc1, array1 + unc1, color='lightblue', alpha=0.5, linewidth = 0)
     if plot_zero_line:
         ax1.axhline(y = 0, linestyle = ':', color=color1)
     ax1.tick_params(axis='y', labelcolor=color1)
 
+    # Set labelsize for the tick labels
+    ax1.tick_params(axis='y', labelcolor=color1, labelsize=14)
+    ax1.tick_params(axis='x', labelcolor='k', labelsize=14)
+
     ax2 = ax1.twinx()  # second y-axis that shares the same x-axis
 
     color2 = 'tab:orange'
-    ax2.set_ylabel(var2.upper() + ' [' + varUnits[var2] + ']', color=color2)
+    if plot_zero_line:
+        ax2.set_ylabel('$\Delta$' + varSymbol[var2] + ' [' + varUnits[var2] + ']', color=color2, fontsize=14)
+    else:
+        ax2.set_ylabel(varSymbol[var2] + ' [' + varUnits[var2] + ']', color=color2, fontsize=14)
     ax2.plot(np.arange(1,13), array2, color=color2)
     if plot_std_band:
         ax2.fill_between(np.arange(1,13), array2 - unc2, array2 + unc2, color='navajowhite', alpha=0.5, linewidth = 0)
     if plot_zero_line:
         ax2.axhline(y = 0, linestyle = ':', color=color2)
     ax2.tick_params(axis='y', labelcolor=color2)
+
+    # Set labelsize for the tick labels
+    ax2.tick_params(axis='y', labelcolor=color2, labelsize=14)
 
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
 
@@ -727,15 +788,29 @@ def make_map(var, data_array, title, minval, maxval, grid_extent, plot_extent, c
 
     fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
 
+     # Update some tick label numbers to become bigger
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams.update({'lines.linewidth': 1.8})
+    plt.rcParams.update({'axes.linewidth': 1.8})
+    plt.rcParams.update({'xtick.major.width': 1.8})
+    plt.rcParams.update({'xtick.major.size': 4})
+    plt.rcParams.update({'ytick.major.width': 1.8})
+    plt.rcParams.update({'ytick.major.size': 4})
+
     ax.set_title(title)
     im = ax.imshow(data_array, vmin=minval, vmax=maxval, cmap=cmap,
                    extent=grid_extent, transform=ccrs.PlateCarree())
     ax.add_feature(cf.COASTLINE)
     ax.set_extent(plot_extent)
     
+    # Add grid lines
+    gl = ax.gridlines(draw_labels=True, crs=ccrs.PlateCarree(), color='gray', linestyle='--', linewidth=0.5)
+    gl.top_labels = False
+    gl.right_labels = False
+    
     # Add a colorbar
-    cbar = fig.colorbar(im, shrink = 0.6, extend = ext)#, cax=cbar_ax)
-    cbar.set_label('[' + varUnits[var] + ']')
+    cbar = fig.colorbar(im, shrink = 0.6, extend = ext, orientation = 'horizontal', pad = 0.1)
+    cbar.set_label(varSymbol[var] + ' [' + varUnits[var] + ']')
 
     plt.tight_layout()
     
@@ -770,6 +845,16 @@ def plot_profile_and_NoShip_line(var, profile_data, profile_data_std, profile_No
     '''
     
     fig = plt.figure()
+
+    # Update some tick label numbers to become bigger
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams.update({'lines.linewidth': 1.8})
+    plt.rcParams.update({'axes.linewidth': 1.8})
+    plt.rcParams.update({'xtick.major.width': 1.8})
+    plt.rcParams.update({'xtick.major.size': 4})
+    plt.rcParams.update({'ytick.major.width': 1.8})
+    plt.rcParams.update({'ytick.major.size': 4})
+
     plt.plot(distance, profile_data, label = 'SC incl.')
     if plot_NoShip_line:
         plt.plot(distance, profile_NoShip, linestyle = ':', color = 'k', label = 'SC excl.')
@@ -782,12 +867,10 @@ def plot_profile_and_NoShip_line(var, profile_data, profile_data_std, profile_No
     if plot_std_band:
         plt.fill_between(distance, profile_data - profile_data_std, profile_data + profile_data_std, color='lightblue', alpha=0.5, linewidth = 0)
 
-    plt.ylabel('[' + varUnits[var] + ']')
+    plt.ylabel(varSymbol[var] + ' [' + varUnits[var] + ']')
     plt.xlabel('Distance from corridor center, W to E [km]')
     plt.title(title)
-    if plot_NoShip_line:
-        plt.legend()
-        
+    
     if saveplot:
 
         fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
@@ -819,6 +902,16 @@ def plot_change_and_zero_line(var, profile_data, profile_data_std, distance, zer
     '''
     
     fig = plt.figure()
+
+    # Update some tick label numbers to become bigger
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams.update({'lines.linewidth': 1.8})
+    plt.rcParams.update({'axes.linewidth': 1.8})
+    plt.rcParams.update({'xtick.major.width': 1.8})
+    plt.rcParams.update({'xtick.major.size': 4})
+    plt.rcParams.update({'ytick.major.width': 1.8})
+    plt.rcParams.update({'ytick.major.size': 4})
+
     plt.plot(distance, profile_data, label = 'SC incl.')
         
     plt.axvline(x = distance[zero_index], linestyle = ':', color='grey')
@@ -829,14 +922,14 @@ def plot_change_and_zero_line(var, profile_data, profile_data_std, distance, zer
     if plot_std_band:
         plt.fill_between(distance, profile_data - profile_data_std, profile_data + profile_data_std, color='lightblue', alpha=0.5, linewidth = 0)
 
-    plt.ylabel('[' + varUnits[var] + ']')
+    plt.ylabel('$\Delta$' + varSymbol[var] + ' [' + varUnits[var] + ']')
     plt.xlabel('Distance from corridor center, W to E [km]')
     plt.title(title)
         
     # Add text box with mean and uncertainty values
-    mean_str = f"{mean_val:.2f}"
-    unc_str = f"{unc_val:.2f}"
-    plt.text(0.95, 0.05, f"Mean = {mean_str} $\pm$ {unc_str} {varUnits[var]}", ha='right', va='top', transform=plt.gca().transAxes, fontsize=10)
+    # mean_str = f"{mean_val:.2f}"
+    # unc_str = f"{unc_val:.2f}"
+    # plt.text(0.95, 0.05, f"Mean = {mean_str} $\pm$ {unc_str} {varUnits[var]}", ha='right', va='top', transform=plt.gca().transAxes, fontsize=10)
 
 
     if saveplot:
@@ -1003,6 +1096,15 @@ def plot_12_monthly_profiles(var, month_string, title, profiles, unc_profiles, a
     
     fig, ax = plt.subplots()
 
+    # Update some tick label numbers to become bigger
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams.update({'lines.linewidth': 1.8})
+    plt.rcParams.update({'axes.linewidth': 1.8})
+    plt.rcParams.update({'xtick.major.width': 1.8})
+    plt.rcParams.update({'xtick.major.size': 4})
+    plt.rcParams.update({'ytick.major.width': 1.8})
+    plt.rcParams.update({'ytick.major.size': 4})
+
     # Define the tab20 colors
     tab20_colors = plt.cm.tab20(np.linspace(0, 1, 20))
 
@@ -1027,10 +1129,17 @@ def plot_12_monthly_profiles(var, month_string, title, profiles, unc_profiles, a
 
         ax.plot(avg_distances_short, mean - mean, color = 'grey', linestyle = ':')
 
+    # Increase tick label size
+    ax.tick_params(axis='y', labelcolor='k', labelsize=14)
+    ax.tick_params(axis='x', labelcolor='k', labelsize=14)
+
     plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax.set_xlabel('Distance from corridor center, W to E [km]')
-    ax.set_ylabel('[' + varUnits[var] + ']')
+    if plot_zero_line:
+        ax.set_ylabel('$\Delta$' + varSymbol[var] + ' [' + varUnits[var] + ']')
+    else:
+        ax.set_ylabel(varSymbol[var] + ' [' + varUnits[var] + ']')
     ax.set_title(title)
 
     if saveplot:
@@ -1064,6 +1173,10 @@ def plot_all_hourly_profiles(var, profiles, std_profiles, avg_distances, zero_in
     '''
     
     fig, ax = plt.subplots()
+
+    # Increase tick label size
+    ax.tick_params(axis='x', length=6, width=1.8, labelsize=14)  
+    ax.tick_params(axis='y', length=6, width=1.8, labelsize=14)  
 
     # Define the tab20 colors
     if ('cfc' in var) or ('cth' in var):
@@ -1099,7 +1212,7 @@ def plot_all_hourly_profiles(var, profiles, std_profiles, avg_distances, zero_in
     plt.axvline(x = avg_distances[zero_index], linestyle = ':', color='grey')
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax.set_xlabel('Distance from corridor center, W to E [km]')
-    ax.set_ylabel('[' + varUnits[var] + ']')
+    ax.set_ylabel(varSymbol[var] + ' [' + varUnits[var] + ']')
     ax.set_title(title)
 
     if saveplot:
@@ -1132,19 +1245,45 @@ def plot_diurnal(var, y_diurnal, y_std, title, output_file, plot_zero_line, save
 
     fig, ax = plt.subplots()
 
-    # Set x-axis tick labels to display time in the format 'H:MM'
-    ax.set_xticks(hours)
-    ax.set_xticklabels([f"{int(hour)}:{30 if hour % 1 == 0.5 else '00'}" for hour in hours])
+    # Update some tick label numbers to become bigger
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams.update({'lines.linewidth': 1.8})
+    plt.rcParams.update({'axes.linewidth': 1.8})
+    plt.rcParams.update({'xtick.major.width': 1.8})
+    plt.rcParams.update({'xtick.major.size': 4})
+    plt.rcParams.update({'ytick.major.width': 1.8})
+    plt.rcParams.update({'ytick.major.size': 4})
 
-    ax.plot(hours, y_diurnal, color='k')
-    ax.fill_between(hours, y_diurnal - y_std, y_diurnal + y_std, color = 'k', alpha = 0.3, linewidth = 0)
+    # Increase tick label size
+    ax.tick_params(axis='x', length=6, width=1.8, labelsize=14)  
+    ax.tick_params(axis='y', length=6, width=1.8, labelsize=14)  
+
+    # Set x-axis tick labels to display time in the format 'H:MM'
+    if np.sum(~np.isnan(y_diurnal)) > 20:
+        xtick_interval = 4
+    else:
+        xtick_interval = 2
+    xtick_positions = np.arange(0.5, 24, xtick_interval)
+    ax.set_xticks(xtick_positions)
+    ax.set_xticklabels([f"{int(hour)}:{30 if hour % 1 == 0.5 else '00'}" for hour in xtick_positions])
+
+    ax.plot(hours, y_diurnal, color='blue')
+    ax.fill_between(hours, y_diurnal - y_std, y_diurnal + y_std, color = 'lightblue', alpha = 0.5, linewidth = 0)
 
     if plot_zero_line:
 
         plt.axhline(y = 0, linestyle = ':', color = 'k')
 
-    ax.set_xlabel('Time (UTC)')
-    ax.set_ylabel('[' + varUnits[var] + ']', color='k')
+    # For CFC plot two vertical lines to show daytime
+    if var == 'cfc':
+        plt.axvline(x = hours[8], linestyle = 'dashed', color='grey')
+        plt.axvline(x = hours[15], linestyle = 'dashed', color='grey')
+
+    ax.set_xlabel('Time (UTC)', fontsize=14)
+    if plot_zero_line:
+        ax.set_ylabel('$\Delta$' + varSymbol[var] + ' [' + varUnits[var] + ']', color='k', fontsize=14)
+    else:
+        ax.set_ylabel(varSymbol[var] + ' [' + varUnits[var] + ']', color='k', fontsize=14)
     ax.set_title(title)
 
     if saveplot:
@@ -1364,38 +1503,44 @@ def analyze_annual_trends_from_specific_months(temp_res, unc_coeff, centered, av
     calculate_temporal_mean_corridor_effect(temp_res, unc_coeff, centered, core_half_range, avg_distances_short, corridor_effect)
 
 
-def calculate_map_of_time_series_means(unc_coeff, data, data_unc, iyear, imonth, eyear, emonth, first_year):
+def calculate_time_series_means(unc_coeff, data, data_unc, iyear, imonth, eyear, emonth, first_year):
 
     '''
     Description:
-        This function calculates the mean, standard deviation, number of values and mean uncertainty from a given 3D array (data) of time series data, as well as an associated array of uncertainties (data_unc). The function returns the calculated values.
+        This function calculates the mean, standard deviation, number of values and mean uncertainty from a given 1D or 3D array (data) of time series data, as well as an associated array of uncertainties (data_unc). The function returns the calculated values.
 
     Input:
         - unc_coeff: A numerical coefficient used in the uncertainty calculation.
-        - data: A 3D NumPy array representing time series data, with the third dimension representing time.
-        - data_unc: A 3D NumPy array representing uncertainties associated with the time series data.
+        - data: A 1D or 3D NumPy array representing time series data, with the third dimension representing time.
+        - data_unc: A 1D or 3D NumPy array representing uncertainties associated with the time series data.
         - iyear, imonth: start year and month for calculations.
         - eyear, emonth: end year and month for calculations.
         - first_year: first year of the entire time series.
 
     Output:
-        - mean: A 2D array representing the mean values of the input data along the time dimension.
-        - std: A 2D array representing the standard deviation of the input data along the time dimension.
-        - N: A 2D array representing the count of non-NaN values used in the mean calculation for each element in the input data along the time dimension.
-        - unc_mean: A 2D array representing the propagated uncertainty of the mean, given unc_coeff, std, and data_unc.
+        - mean: A value or 2D array representing the mean values of the input data along the time dimension.
+        - std: A value or 2D array representing the standard deviation of the input data along the time dimension.
+        - N: A value or 2D array representing the count of non-NaN values used in the mean calculation for each element in the input data along the time dimension.
+        - unc_mean: A value or 2D array representing the propagated uncertainty of the mean, given unc_coeff, std, and data_unc.
     '''
 
     # Find start and end indices for averaging
     si = (iyear - first_year) * 12 + (imonth - 1)
     ei = (eyear - first_year) * 12 + emonth
 
-    mean = np.nanmean(data[:, :, si:ei], axis = 2)
-    std = np.nanstd(data[:, :, si:ei], axis = 2)
-    N = np.round(np.nansum(data[:, :, si:ei], axis = 2) / mean).astype(int)
-    unc_mean = np.sqrt(((1 / N) * (std**2)) + unc_coeff * (np.nanmean(data_unc[:, :, si:ei])**2))
+    if data.ndim == 1:        
+        mean = np.nanmean(data[si:ei])
+        std = np.nanstd(data[si:ei])
+        N = np.round(np.nansum(data[si:ei]) / mean).astype(int)
+        unc_mean = np.sqrt(((1 / N) * (std**2)) + unc_coeff * (np.nanmean(data_unc[si:ei])**2))
+
+    if data.ndim == 3:
+        mean = np.nanmean(data[:, :, si:ei], axis = 2)
+        std = np.nanstd(data[:, :, si:ei], axis = 2)
+        N = np.round(np.nansum(data[:, :, si:ei], axis = 2) / mean).astype(int)
+        unc_mean = np.sqrt(((1 / N) * (std**2)) + unc_coeff * (np.nanmean(data_unc[:, :, si:ei])**2))
 
     return mean, std, N, unc_mean
-
 
 def find_overlap(array1, unc1, array2, unc2):
 
