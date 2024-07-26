@@ -18,7 +18,6 @@ import sys
 from shipping_corridor_functions import block_average, calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_area_weighted_average, center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_all_hourly_profiles, plot_diurnal, plot_profile_and_NoShip_line, read_lat_lon_arrays, read_monthly_time_series
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 from claas3_dictionaries import FileNameStart
-import pvlib
 
 
 def process_index(c):
@@ -254,10 +253,10 @@ if create_hourly_maps:
 
 
 # 2. Spatial time series averages per hour
-plot_diurnal_spatial_averages = False
+plot_diurnal_spatial_averages = True
 if plot_diurnal_spatial_averages:
 
-    plot_diurnal(var, time_series['spatial_mean_per_hour'], time_series['spatial_std_per_hour'], var.upper() + ' diurnal variation', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_diurnal_mean.png', plot_zero_line = False, saveplot = True)
+    plot_diurnal(var, time_series['spatial_mean_per_hour'], time_series['spatial_std_per_hour'], 'Diurnal variation', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_diurnal_mean.png', plot_zero_line = False, saveplot = True)
 
 
 # 3. Corridor-centered plots
@@ -274,8 +273,8 @@ if plot_24_profiles:
 
 
 # Plot diurnal corridor effect
-plot_diurnal(var, corridor_effect['mean_per_hour'], corridor_effect['std_per_hour'], 'Diurnal corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_diurnal_corridor_effect_and_std.png', plot_zero_line = True, saveplot = True)         
+plot_diurnal(var, corridor_effect['mean_per_hour'], corridor_effect['std_per_hour'], 'Diurnal corridor effect', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_diurnal_corridor_effect_and_std.png', plot_zero_line = True, saveplot = True)         
 
-plot_all_hourly_profiles(var, corridor_effect['mean_profile_per_hour'], corridor_effect['std_profile_per_hour'], avg_distances, zero_index, avg_distances_short, 'Hourly effect across corridor on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_all_hourly_diff_profiles_across_sc.png', plot_std_bands = False, plot_zero_line = True, saveplot = True),  
+plot_all_hourly_profiles(var, corridor_effect['mean_profile_per_hour'], corridor_effect['std_profile_per_hour'], avg_distances, zero_index, avg_distances_short, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_all_hourly_diff_profiles_across_sc.png', plot_std_bands = False, plot_zero_line = True, saveplot = True)
 
 print('check')
