@@ -246,7 +246,7 @@ def plot_time_series(dates, array, array_unc, var_name, title, output_file, plot
 
     '''
     Description:
-        Plots a time series of data with dates on the x-axis and the corresponding array values on the y-axis. Optionally, vertical dotted lines can be added at the beginning of each year. The plot includes labels for the x-axis, y-axis, and title. If specified, the plot can be saved to an output file.
+        Plots a time series of data with dates on the x-axis and the corresponding array values on the y-axis. Optionally, vertical dotted lines can be added at the beginning of each year. If specified, the plot can be saved to an output file.
 
     Inputs:
         - dates: (list or array) Dates corresponding to the data points in the time series.
@@ -311,7 +311,7 @@ def plot_two_time_series(dates, var_name_1, array_1, array_1_unc, var_name_2, ar
 
     '''
     Description:
-        Plots two time series on the same plot with shared x-axis (dates) and dual y-axes. Each time series is represented by a line plot with specified colors. Vertical dotted lines are added at the beginning of each year for reference. The plot includes labels for the x-axis, y-axes, and title. If specified, the plot can be saved to an output file.
+        Plots two time series on the same plot with shared x-axis (dates) and dual y-axes. Vertical dotted lines are added at the beginning of each year for reference. If specified, the plot can be saved to an output file.
 
     Inputs:
         - dates: (list) Dates corresponding to the data points in the time series
@@ -609,7 +609,7 @@ def find_angle_bewteen_shipping_corrridor_and_north(sc_centlat, sc_centlon):
     coefficients = np.polyfit(sc_centlon, sc_centlat, 1)
     slope = coefficients[0]
 
-    # Calculate the angle between the line and south-to-north (meridian) direction
+    # Calculate the angle between the line and south-to-north direction
     angle_radians = np.arctan(slope)
     angle_degrees = np.degrees(angle_radians)
 
@@ -767,7 +767,7 @@ def make_map(var, data_array, title, minval, maxval, grid_extent, plot_extent, c
     
     '''
     Description:
-        This function generates a map plot using the provided array data, with customizable settings such as title, colorbar, and extent. It utilizes Matplotlib and Cartopy for plotting geographical data.
+        This function generates a map plot using the provided array data.
 
     Inputs:
         - var: A string with the name of the variable.
@@ -925,16 +925,72 @@ def plot_change_and_zero_line(var, profile_data, profile_data_std, distance, zer
     plt.ylabel('$\Delta$' + varSymbol[var] + ' [' + varUnits[var] + ']')
     plt.xlabel('Distance from corridor center, W to E [km]')
     plt.title(title)
-        
-    # Add text box with mean and uncertainty values
-    # mean_str = f"{mean_val:.2f}"
-    # unc_str = f"{unc_val:.2f}"
-    # plt.text(0.95, 0.05, f"Mean = {mean_str} $\pm$ {unc_str} {varUnits[var]}", ha='right', va='top', transform=plt.gca().transAxes, fontsize=10)
-
 
     if saveplot:
 
         fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
+
+    plt.close()
+
+
+def plot_change_and_zero_line_for_two(var, profile_data1, profile_data_std1, label1, profile_data2, profile_data_std2, label2, distance, zero_index, title, outfile, plot_std_band, saveplot):
+
+    '''
+    Description:
+        This function generates a plot displaying two profiles of changes across the shipping corridor and the zero line, with options to include shaded bands indicating the propagated uncertainty of the profile data for both profiles.
+
+    Input:
+        - var: A string of the variable name.
+        - profile_data1: A 1D NumPy array with the first data profile across the corridor.
+        - profile_data_std1: A 1D NumPy array with the uncertainty of the first data, used to plot the shaded band.
+        - label1: A string to be used as label for profile 1.
+        - profile_data2: A 1D NumPy array with the second data profile across the corridor.
+        - profile_data_std2: A 1D NumPy array with the uncertainty of the second data, used to plot the shaded band.
+        - - label2: A string to be used as label for profile 2.
+        - distance: A 1D NumPy array with distance values from the corridor center, used as the x-axis.
+        - zero_index: Index of the zero line on the x-axis.
+        - title: A string with the title of the plot.
+        - outfile: A string with the file path for saving the plot.
+        - plot_std_band: Boolean indicating whether to plot the shaded bands representing the propagated uncertainties for both profiles.
+        - saveplot: Boolean indicating whether to save the plot.
+
+    Output:
+        - If saveplot is set to True, the plot is saved to the specified file path.
+    '''
+
+    fig = plt.figure()
+
+    # Update some tick label numbers to become bigger
+    plt.rcParams.update({'font.size': 14})
+    plt.rcParams.update({'lines.linewidth': 1.8})
+    plt.rcParams.update({'axes.linewidth': 1.8})
+    plt.rcParams.update({'xtick.major.width': 1.8})
+    plt.rcParams.update({'xtick.major.size': 4})
+    plt.rcParams.update({'ytick.major.width': 1.8})
+    plt.rcParams.update({'ytick.major.size': 4})
+
+    plt.plot(distance, profile_data1, label=label1, color='blue')
+    
+    plt.plot(distance, profile_data2, label=label2, color='orange') 
+
+    plt.axvline(x=distance[zero_index], linestyle=':', color='grey')
+
+    plt.axhline(y=0, linestyle=':', color='grey')
+
+    # Plot uncertainty as a shaded bands
+    if plot_std_band:
+
+        plt.fill_between(distance, profile_data1 - profile_data_std1, profile_data1 + profile_data_std1, color='lightblue', alpha=0.5, linewidth=0)
+
+        plt.fill_between(distance, profile_data2 - profile_data_std2, profile_data2 + profile_data_std2, color='navajowhite', alpha=0.5, linewidth=0)
+
+    plt.ylabel('$\Delta$' + varSymbol[var] + ' [' + varUnits[var] + ']')
+    plt.xlabel('Distance from corridor center, W to E [km]')
+    plt.title(title)
+    # plt.legend()  
+
+    if saveplot:
+        fig.savefig(outfile, dpi=300, bbox_inches='tight')
 
     plt.close()
 
@@ -1105,10 +1161,8 @@ def plot_12_monthly_profiles(var, month_string, title, profiles, unc_profiles, a
     plt.rcParams.update({'ytick.major.width': 1.8})
     plt.rcParams.update({'ytick.major.size': 4})
 
-    # Define the tab20 colors
     tab20_colors = plt.cm.tab20(np.linspace(0, 1, 20))
 
-    # Use the first 12 colors for the plot
     colors = tab20_colors[:12]
 
     for i in range(12):
@@ -1178,7 +1232,6 @@ def plot_all_hourly_profiles(var, profiles, std_profiles, avg_distances, zero_in
     ax.tick_params(axis='x', length=6, width=1.8, labelsize=14)  
     ax.tick_params(axis='y', length=6, width=1.8, labelsize=14)  
 
-    # Define the tab20 colors
     if ('cfc' in var) or ('cth' in var):
         tab20_colors = plt.cm.tab20(np.linspace(0, 1, 24))
     else:
@@ -1262,7 +1315,7 @@ def plot_diurnal(var, y_diurnal, y_std, title, output_file, plot_zero_line, save
     if np.sum(~np.isnan(y_diurnal)) > 20:
         xtick_interval = 4
     else:
-        xtick_interval = 2
+        xtick_interval = 1
     xtick_positions = np.arange(0.5, 24, xtick_interval)
     ax.set_xticks(xtick_positions)
     ax.set_xticklabels([f"{int(hour)}:{30 if hour % 1 == 0.5 else '00'}" for hour in xtick_positions])
@@ -1276,8 +1329,8 @@ def plot_diurnal(var, y_diurnal, y_std, title, output_file, plot_zero_line, save
 
     # For CFC plot two vertical lines to show daytime
     if var == 'cfc':
-        plt.axvline(x = hours[8], linestyle = 'dashed', color='grey')
-        plt.axvline(x = hours[15], linestyle = 'dashed', color='grey')
+        plt.axvline(x = hours[9], linestyle = 'dashed', color='grey')
+        plt.axvline(x = hours[14], linestyle = 'dashed', color='grey')
 
     ax.set_xlabel('Time (UTC)', fontsize=14)
     if plot_zero_line:
@@ -1430,21 +1483,17 @@ def calculate_temporal_average_profiles_from_specific_months(centered, months_in
     '''
 
 
-    # Define a dictionary mapping month initials to month numbers
     month_dict = {
         'J': 1, 'F': 2, 'M': 3, 'A': 4, 'M': 5, 'J': 6, 'J': 7, 'A': 8,
         'S': 9, 'O': 10, 'N': 11, 'D': 12
     }
     
-    # Check if months_initials is 'annual'
     if months_initials.lower() == 'annual':
-        # Average all 12 months if the input is 'annual'
         months_list = list(range(12))
     else:
         # Convert month initials to month numbers
         months_list = [month_dict[month] - 1 for month in months_initials.upper()]
     
-    # Get the shape of the monthly data
     num_years = centered['monthly_profiles'].shape[1] // 12
     
     # Reshape the monthly data into (num_months, num_years, 12)
@@ -1569,45 +1618,3 @@ def check_significance_of_difference(array1, unc1, array2, unc2):
     significant = abs_diff >= unc_comb
 
     return significant
-
-def plot_data_with_mask(var, data_array, bool_array, title, minval, maxval, grid_extent, plot_extent, cmap_color, cmap_grey, ext, filename, saveplot):
-
-    # Create the plot
-    fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
-
-    # Set the title
-    ax.set_title(title)
-
-    # Masked arrays for True and False cases
-    masked_data_false = np.ma.masked_where(bool_array, data_array)
-    masked_data_true = np.ma.masked_where(~bool_array, data_array)
-
-    # Plot False cases using grayscale colormap
-    im_grey = ax.imshow(masked_data_false, cmap=cmap_grey, vmin=minval, vmax=maxval, extent=grid_extent, transform=ccrs.PlateCarree())
-
-    # Plot True cases using color colormap
-    im_color = ax.imshow(masked_data_true, cmap=cmap_color, vmin=minval, vmax=maxval, extent=grid_extent, transform=ccrs.PlateCarree())
-
-    # Add coastlines
-    ax.add_feature(cf.COASTLINE)
-
-    # Set the plot extent
-    ax.set_extent(plot_extent)
-
-    # Add a single colorbar using the color colormap
-    cbar = fig.colorbar(im_color, shrink=0.6, extend=ext)
-    cbar.set_label(f'[{varUnits[var]}]')
-
-    # Add colorbars for both greyscale and color portions
-    # cbar_grey = fig.colorbar(im_grey, shrink=0.6, extend=ext, orientation='vertical', pad=0.05)
-    
-
-    # Adjust the layout
-    plt.tight_layout()
-
-    # Save the plot if required
-    if saveplot:
-        plt.savefig(filename, bbox_inches='tight', dpi=300)
-
-    # Close the plot
-    plt.close()
