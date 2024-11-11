@@ -251,6 +251,20 @@ if create_hourly_maps:
 
             make_map(var, time_series['Nmonths_map_per_hour'][i, :, :], var.upper() + ' ' + str(i).zfill(2) + ':30 UTC Nmonths', np.nanmin(time_series['Nmonths_map_per_hour'][i, :, :]), np.nanmax(time_series['Nmonths_map_per_hour'][i, :, :]), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_map_Nmonths_hour_' + str(i).zfill(2) + '30UTC_' + str(start_year) + '-' + str(end_year) + '.png', saveplot = True)
 
+# Remove the two remaining extreem values in early morning and late afternoon
+if var != 'cfc':
+    time_series['spatial_mean_per_hour'][8] = np.nan
+    time_series['spatial_mean_per_hour'][15] = np.nan
+    time_series['spatial_std_per_hour'][8] = np.nan
+    time_series['spatial_std_per_hour'][15] = np.nan
+    corridor_effect['mean_per_hour'][8] = np.nan
+    corridor_effect['mean_per_hour'][15] = np.nan
+    corridor_effect['std_per_hour'][8] = np.nan
+    corridor_effect['std_per_hour'][15] = np.nan
+    corridor_effect['mean_profile_per_hour'][8, :] = np.nan
+    corridor_effect['mean_profile_per_hour'][15, :] = np.nan
+    corridor_effect['std_profile_per_hour'][8, :] = np.nan
+    corridor_effect['std_profile_per_hour'][15, :] = np.nan
 
 # 2. Spatial time series averages per hour
 plot_diurnal_spatial_averages = True
