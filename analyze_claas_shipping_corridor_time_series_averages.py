@@ -40,7 +40,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cfc_day'
+var = 'cdnc_liq'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
 
 # Uncertainty correlation coefficient for monthly averages
@@ -212,11 +212,18 @@ if create_profile_plots:
     plot_profile_and_NoShip_line(var, centered['mean_short'], centered['unc_mean_short'], centered['mean_short_NoShip'], avg_distances_short, zero_index, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_across_sc.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
 
 
-create_profile_difference_plots = False
+create_profile_difference_plots = True
+save_profile_difference_data = True
 if create_profile_difference_plots:
 
     # Plot profile of mean values
     plot_change_and_zero_line(var, corridor_effect['profile'], corridor_effect['profile_unc'], avg_distances_short, zero_index, corridor_effect['mean'], corridor_effect['unc_mean'], ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_change_across_sc.png', plot_std_band = True, saveplot = True)
+
+    if save_profile_difference_data:
+
+        np.save('npy_arrays_for_plots/' + var.upper() + '/' + var.upper() + '_time_series_mean_change_across_sc_' + str(start_year) + '-' + str(end_year) + '.npy', corridor_effect['profile'])
+
+        np.save('npy_arrays_for_plots/' + var.upper() + '/' + var.upper() + '_time_series_mean_change_unc_across_sc_' + str(start_year) + '-' + str(end_year) + '.npy', corridor_effect['profile_unc'])
 
 # =============================================================================
 # Analysis of monthly trends
@@ -275,7 +282,7 @@ if plot_all_monthly_profiles:
 # Compare maps of averages before and after 2020
 # =============================================================================
 
-compare_maps_of_averages_before_and_after_2020 = True
+compare_maps_of_averages_before_and_after_2020 = False
 if compare_maps_of_averages_before_and_after_2020:
 
     time_series['mean_before_2020'], _, _, time_series['unc_mean_before_2020'] = calculate_time_series_means(unc_coeff, time_series['data'], time_series['unc'], 2004, 1, 2019, 12, start_year) 
