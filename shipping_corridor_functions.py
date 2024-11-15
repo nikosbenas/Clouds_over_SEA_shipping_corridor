@@ -380,7 +380,7 @@ def plot_two_time_series(dates, var_name_1, array_1, array_1_unc, var_name_2, ar
     plt.close()
 
 
-def plot_intra_annual_variation(var, array, unc, title, outfile, plot_std_band, plot_zero_line, saveplot):
+def plot_intra_annual_variation(var, array, unc, title, outfile, plot_unc_band, plot_zero_line, saveplot):
 
     '''
     Description:
@@ -392,7 +392,7 @@ def plot_intra_annual_variation(var, array, unc, title, outfile, plot_std_band, 
         - unc: 1D NumPy array containing the propagated uncertainties for each month.
         - title: a string containing the title of the plot.
         - outfile: Filepath to save the plot.
-        - plot_std_band: Boolean indicating whether to plot uncertainty bands around the main data line.
+        - plot_unc_band: Boolean indicating whether to plot uncertainty bands around the main data line.
         - plot_zero_line: Boolean indicating whether to plot a dotted line at y = 0.
         - saveplot: Boolean indicating whether to save the plot to outfile.
     '''
@@ -411,7 +411,7 @@ def plot_intra_annual_variation(var, array, unc, title, outfile, plot_std_band, 
     plt.plot(np.arange(1,13), array, color = 'k')
 
     # Plot standard deviation as a light grey band around the main data line
-    if plot_std_band:
+    if plot_unc_band:
 
         plt.fill_between(np.arange(1,13), array - unc, array + unc, color = 'lightgrey', alpha = 0.5, linewidth = 0)
 
@@ -431,7 +431,7 @@ def plot_intra_annual_variation(var, array, unc, title, outfile, plot_std_band, 
     plt.close()
 
 
-def plot_intra_annual_variation_for_two(var1, array1, unc1, var2, array2, unc2, title, outfile, plot_std_band, plot_zero_line, saveplot):
+def plot_intra_annual_variation_for_two(var1, array1, unc1, var2, array2, unc2, title, outfile, plot_unc_band, plot_zero_line, saveplot):
     '''
     Description:
         This function generates a plot of the intra-annual (seasonal) variation of two variables throughout the year. It displays values of the variables for each month, optionally accompanied by bands representing propagated uncertainties. The plot can be saved to a file if specified.
@@ -445,7 +445,7 @@ def plot_intra_annual_variation_for_two(var1, array1, unc1, var2, array2, unc2, 
         - unc2: 1D NumPy array containing the propagated uncertainties for the second variable for each month.
         - title: a string containing the title of the plot.
         - outfile: Filepath to save the plot.
-        - plot_std_band: Boolean indicating whether to plot uncertainty bands around the main data lines.
+        - plot_unc_band: Boolean indicating whether to plot uncertainty bands around the main data lines.
         - plot_zero_line: Boolean indicating whether to plot dotted lines at y = 0 in both y axes.
         - saveplot: Boolean indicating whether to save the plot to outfile.
     '''
@@ -473,7 +473,7 @@ def plot_intra_annual_variation_for_two(var1, array1, unc1, var2, array2, unc2, 
     # Set the x-ticks and x-tick labels
     ax1.set_xticks(np.arange(1, 13))
     ax1.set_xticklabels(month_labels)
-    if plot_std_band:
+    if plot_unc_band:
         ax1.fill_between(np.arange(1,13), array1 - unc1, array1 + unc1, color='lightblue', alpha=0.5, linewidth = 0)
     if plot_zero_line:
         ax1.axhline(y = 0, linestyle = ':', color=color1)
@@ -491,7 +491,7 @@ def plot_intra_annual_variation_for_two(var1, array1, unc1, var2, array2, unc2, 
     else:
         ax2.set_ylabel(varSymbol[var2] + ' [' + varUnits[var2] + ']', color=color2, fontsize=14)
     ax2.plot(np.arange(1,13), array2, color=color2)
-    if plot_std_band:
+    if plot_unc_band:
         ax2.fill_between(np.arange(1,13), array2 - unc2, array2 + unc2, color='navajowhite', alpha=0.5, linewidth = 0)
     if plot_zero_line:
         ax2.axhline(y = 0, linestyle = ':', color=color2)
@@ -821,23 +821,25 @@ def make_map(var, data_array, title, minval, maxval, grid_extent, plot_extent, c
     plt.close()
 
 
-def plot_profile_and_NoShip_line(var, profile_data, profile_data_std, profile_NoShip, distance, zero_index, title, outfile, plot_NoShip_line, plot_std_band, saveplot):
+def plot_profile_and_NoShip_line(var, profile_data, profile_data_unc, profile_NoShip, profile_NoShip_unc, distance, zero_index, title, outfile, plot_NoShip_line, plot_data_unc, plot_NoShip_unc, saveplot):
 
     '''
     Description:
-        This function generates a plot displaying data profiles across the shipping corridor, with options to include a line representing data excluding the corridor ("SC excl.") and a shaded band indicating the standard deviation of the data ("SC incl.").
+        This function generates a plot displaying data profiles across the shipping corridor, with options to include a line representing data excluding the corridor ("SC excl.") and shaded bands indicating the uncertainties of the data.
 
     Input:
         - var: A string of the variable name.
         - profile_data: A 1D NumPy array with the data profile across the corridor.
-        - profile_data_std: A 1D NumPy array with the standard deviation of the data, used to plot the shaded band.
-        - profile_NoShip: A 1D NumPy array with the data profile excluding the corridor.
+        - profile_data_unc: A 1D NumPy array with the uncertainty of the data.
+        - profile_NoShip: A 1D NumPy array with the data assuming no corridor.
+        - profile_NoShip_unc: A 1D NumPy array with the uncertainty of the no-corridor data.
         - distance: A 1D NumPy array with distance values from the corridor center, used as the x-axis.
         - zero_index: Index of the zero line on the x-axis.
         - title: A string with the title of the plot.
         - outfile: A string with the file path for saving the plot.
         - plot_NoShip_line: Boolean indicating whether to plot the "SC excl." line.
-        - plot_std_band: Boolean indicating whether to plot the shaded band representing the standard deviation.
+        - plot_data_unc: Boolean indicating whether to plot the shaded band representing the data uncertainty.
+        - plot_NoShip_unc: Boolean indicating whether to plot the shaded band representing the no-corridor data uncertainty.
         - saveplot: Boolean indicating whether to save the plot.
 
     Output:
@@ -863,9 +865,11 @@ def plot_profile_and_NoShip_line(var, profile_data, profile_data_std, profile_No
         
     plt.axvline(x = distance[zero_index], linestyle = ':', color='grey')
 
-    # Plot standard deviation as a light blue band around the main data line
-    if plot_std_band:
-        plt.fill_between(distance, profile_data - profile_data_std, profile_data + profile_data_std, color='lightblue', alpha=0.5, linewidth = 0)
+    # Plot data and no-corridor data uncertainties (optional)
+    if plot_data_unc:
+        plt.fill_between(distance, profile_data - profile_data_unc, profile_data + profile_data_unc, color='lightblue', alpha=0.5, linewidth = 0)
+    if plot_NoShip_unc:
+        plt.fill_between(distance, profile_NoShip - profile_NoShip_unc, profile_NoShip + profile_NoShip_unc, color='darkgrey', alpha=0.5, linewidth = 0)
 
     plt.ylabel(varSymbol[var] + ' [' + varUnits[var] + ']')
     plt.xlabel('Distance from corridor center, W to E [km]')
@@ -876,9 +880,77 @@ def plot_profile_and_NoShip_line(var, profile_data, profile_data_std, profile_No
         fig.savefig(outfile, dpi = 300, bbox_inches = 'tight')
 
     plt.close()
+    
 
 
-def plot_change_and_zero_line(var, profile_data, profile_data_std, distance, zero_index, mean_val, unc_val, title, outfile, plot_std_band, saveplot):
+def plot_profile_and_many_NoShip_lines(var, profile_data, profile_data_unc, profile_NoShip, distance, zero_index, title, outfile, plot_data_unc, saveplot):
+    '''
+    Description:
+        This function generates a plot displaying data profiles across the shipping corridor, including multiple lines representing data excluding the corridor.
+
+    Input:
+        - var: A string of the variable name.
+        - profile_data: A 1D NumPy array with the data profile across the corridor.
+        - profile_data_unc: A 1D NumPy array with the uncertainty of the data.
+        - profile_NoShip: A 2D NumPy array with the data assuming no corridor.
+        - distance: A 1D NumPy array with distance values from the corridor center, used as the x-axis.
+        - zero_index: Index of the zero line on the x-axis.
+        - title: A string with the title of the plot.
+        - outfile: A string with the file path for saving the plot.
+        - plot_data_unc: Boolean indicating whether to plot the shaded band representing the data uncertainty.
+        - saveplot: Boolean indicating whether to save the plot.
+
+    Output:
+        - If saveplot is set to True, the plot is saved to the specified file path.
+    '''
+    
+    fig = plt.figure()
+
+    # Update some tick label numbers to become bigger
+    # plt.rcParams.update({'font.size': 14})
+    # plt.rcParams.update({'lines.linewidth': 1.8})
+    # plt.rcParams.update({'axes.linewidth': 1.8})
+    # plt.rcParams.update({'xtick.major.width': 1.8})
+    # plt.rcParams.update({'xtick.major.size': 4})
+    # plt.rcParams.update({'ytick.major.width': 1.8})
+    # plt.rcParams.update({'ytick.major.size': 4})
+    
+    no_ship_labels = [
+        "Fit at 150 km - 300 km",
+        "Fit at 200 km - 350 km",
+        "Fit at 250 km - 400 km",
+        "Fit at 300 km - 450 km",
+        "Fit at 350 km - 500 km"
+    ]
+
+    # Plot main profile data line
+    plt.plot(distance, profile_data, label='Profile including corridor')
+    
+    # Plot each "NoShip" line 
+    for i in range(profile_NoShip.shape[1]): 
+        plt.plot(distance, profile_NoShip[:, i], linestyle=':', label=no_ship_labels[i])
+        
+    # Plot zero line and uncertainties for main profile data (optional)
+    plt.axvline(x=distance[zero_index], linestyle=':', color='grey')
+    if plot_data_unc:
+        plt.fill_between(distance, profile_data - profile_data_unc, profile_data + profile_data_unc, color='lightblue', alpha=0.5, linewidth=0)
+    
+    # Axis labels and title
+    plt.ylabel(varSymbol[var] + ' [' + varUnits[var] + ']')
+    plt.xlabel('Distance from corridor center, W to E [km]')
+    plt.title(title)
+    
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=8)
+    
+    # Save plot if requested
+    if saveplot:
+        fig.savefig(outfile, dpi=300, bbox_inches='tight')
+
+    plt.close()
+    
+
+
+def plot_change_and_zero_line(var, profile_data, profile_data_unc, distance, zero_index, mean_val, unc_val, mean_perc, unc_perc, title, outfile, plot_data_unc, saveplot):
 
     '''
     Description:
@@ -887,14 +959,16 @@ def plot_change_and_zero_line(var, profile_data, profile_data_std, distance, zer
     Input:
         - var: A string of the variable name.
         - profile_data: A 1D NumPy array with the data profile across the corridor.
-        - profile_data_std: A 1D NumPy array with the standard deviation of the data, used to plot the shaded band.
+        - profile_data_unc: A 1D NumPy array with the suncertainty of the data.
         - distance: A 1D NumPy array with distance values from the corridor center, used as the x-axis.
         - zero_index: Index of the zero line on the x-axis.
         - mean_val: Mean value to display in a text box.
         - unc_val: Uncertainty value to display in a text box.
+        - mean_perc: Mean value (in percent) to display in a text box.
+        - unc_perc: Uncertainty value (in percent) to display in a text box.
         - title: A string with the title of the plot.
         - outfile: A string with the file path for saving the plot.
-        - plot_std_band: Boolean indicating whether to plot the shaded band representing the standard deviation.
+        - plot_data_unc: Boolean indicating whether to plot the shaded band representing the uncertainty.
         - saveplot: Boolean indicating whether to save the plot.
 
     Output:
@@ -919,12 +993,25 @@ def plot_change_and_zero_line(var, profile_data, profile_data_std, distance, zer
     plt.axhline(y = 0, linestyle = ':', color='grey')
 
     # Plot standard deviation as a light blue band around the main data line
-    if plot_std_band:
-        plt.fill_between(distance, profile_data - profile_data_std, profile_data + profile_data_std, color='lightblue', alpha=0.5, linewidth = 0)
+    if plot_data_unc:
+        plt.fill_between(distance, profile_data - profile_data_unc, profile_data + profile_data_unc, color='lightblue', alpha=0.5, linewidth = 0)
 
     plt.ylabel('$\Delta$' + varSymbol[var] + ' [' + varUnits[var] + ']')
     plt.xlabel('Distance from corridor center, W to E [km]')
     plt.title(title)
+
+    textstr = (
+        r"$\text{Average effect}$" +
+        f"\n({mean_val:.2f} ± {unc_val:.2f}) {varUnits[var]}" +
+        f"\n({mean_perc:.2f} ± {unc_perc:.2f}) %"
+    )
+        
+    if var == 'cdnc_liq':
+        plt.gca().text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10, verticalalignment='top', horizontalalignment='left', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="white", alpha=0))
+        plt.plot([0.05, 0.27], [0.9, 0.9], transform=plt.gca().transAxes, color="k", lw=0.8)
+    else:
+        plt.gca().text(0.05, 0.18, textstr, transform=plt.gca().transAxes, fontsize=10, verticalalignment='top', horizontalalignment='left', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="white", alpha=0))
+        plt.plot([0.05, 0.27], [0.13, 0.13], transform=plt.gca().transAxes, color="k", lw=0.8)
 
     if saveplot:
 
@@ -933,7 +1020,7 @@ def plot_change_and_zero_line(var, profile_data, profile_data_std, distance, zer
     plt.close()
 
 
-def plot_change_and_zero_line_for_two(var, profile_data1, profile_data_std1, label1, profile_data2, profile_data_std2, label2, distance, zero_index, title, outfile, plot_std_band, saveplot):
+def plot_change_and_zero_line_for_two(var, profile_data1, profile_data_unc1, label1, profile_data2, profile_data_unc2, label2, distance, zero_index, title, outfile, plot_unc_band, saveplot):
 
     '''
     Description:
@@ -942,16 +1029,16 @@ def plot_change_and_zero_line_for_two(var, profile_data1, profile_data_std1, lab
     Input:
         - var: A string of the variable name.
         - profile_data1: A 1D NumPy array with the first data profile across the corridor.
-        - profile_data_std1: A 1D NumPy array with the uncertainty of the first data, used to plot the shaded band.
+        - profile_data_unc1: A 1D NumPy array with the uncertainty of the first data, used to plot the shaded band.
         - label1: A string to be used as label for profile 1.
         - profile_data2: A 1D NumPy array with the second data profile across the corridor.
-        - profile_data_std2: A 1D NumPy array with the uncertainty of the second data, used to plot the shaded band.
+        - profile_data_unc2: A 1D NumPy array with the uncertainty of the second data, used to plot the shaded band.
         - - label2: A string to be used as label for profile 2.
         - distance: A 1D NumPy array with distance values from the corridor center, used as the x-axis.
         - zero_index: Index of the zero line on the x-axis.
         - title: A string with the title of the plot.
         - outfile: A string with the file path for saving the plot.
-        - plot_std_band: Boolean indicating whether to plot the shaded bands representing the propagated uncertainties for both profiles.
+        - plot_unc_band: Boolean indicating whether to plot the shaded bands representing the propagated uncertainties for both profiles.
         - saveplot: Boolean indicating whether to save the plot.
 
     Output:
@@ -978,11 +1065,11 @@ def plot_change_and_zero_line_for_two(var, profile_data1, profile_data_std1, lab
     plt.axhline(y=0, linestyle=':', color='grey')
 
     # Plot uncertainty as a shaded bands
-    if plot_std_band:
+    if plot_unc_band:
 
-        plt.fill_between(distance, profile_data1 - profile_data_std1, profile_data1 + profile_data_std1, color='lightblue', alpha=0.5, linewidth=0)
+        plt.fill_between(distance, profile_data1 - profile_data_unc1, profile_data1 + profile_data_unc1, color='lightblue', alpha=0.5, linewidth=0)
 
-        plt.fill_between(distance, profile_data2 - profile_data_std2, profile_data2 + profile_data_std2, color='navajowhite', alpha=0.5, linewidth=0)
+        plt.fill_between(distance, profile_data2 - profile_data_unc2, profile_data2 + profile_data_unc2, color='navajowhite', alpha=0.5, linewidth=0)
 
     plt.ylabel('$\Delta$' + varSymbol[var] + ' [' + varUnits[var] + ']')
     plt.xlabel('Distance from corridor center, W to E [km]')
@@ -1203,7 +1290,7 @@ def plot_12_monthly_profiles(var, month_string, title, profiles, unc_profiles, a
     plt.close()
 
 
-def plot_all_hourly_profiles(var, profiles, std_profiles, avg_distances, zero_index, avg_distances_short, title, outfile, plot_std_bands, plot_zero_line, saveplot):
+def plot_all_hourly_profiles(var, profiles, std_profiles, avg_distances, zero_index, avg_distances_short, title, outfile, plot_unc_bands, plot_zero_line, saveplot):
 
     '''
     Description:
@@ -1218,7 +1305,7 @@ def plot_all_hourly_profiles(var, profiles, std_profiles, avg_distances, zero_in
         - avg_distances_short: 1D NumPy array (n) containing NaN values for distances larger than a threshold.
         - title: Title of the plot.
         - outfile: Filepath to save the plot.
-        - plot_std_bands: Boolean indicating whether to plot standard deviation bands.
+        - plot_unc_bands: Boolean indicating whether to plot standard deviation bands.
         - plot_zero_line: Boolean indicating whether to plot a zero line.
         - saveplot: Boolean indicating whether to save the plot to outfile.
 
@@ -1250,7 +1337,7 @@ def plot_all_hourly_profiles(var, profiles, std_profiles, avg_distances, zero_in
 
             ax.plot(avg_distances_short, mean, label = label, color = colors[color_index])
 
-            if plot_std_bands:
+            if plot_unc_bands:
 
                 unc = std_profiles[:, i]
 
