@@ -15,7 +15,7 @@ import sys
 import numpy as np
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 from claas3_dictionaries import FileNameStart, varSymbol
-from shipping_corridor_functions import analyze_annual_trends_from_specific_months, calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_average_corridor_value_per_month, calculate_average_profiles_per_month, calculate_time_series_means, calculate_temporal_mean_corridor_effect, calculate_running_mean, center_data_along_corridor, center_shipping_corridor_perpendicular_lines, check_significance_of_difference, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_change_and_zero_line, plot_time_series, read_lat_lon_arrays, read_monthly_time_series, plot_profile_and_NoShip_line
+from shipping_corridor_functions import analyze_annual_trends_from_specific_months, calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_average_corridor_value_per_month, calculate_average_profiles_per_month, calculate_time_series_means, calculate_temporal_mean_corridor_effect, calculate_running_mean, center_data_along_corridor, center_shipping_corridor_perpendicular_lines, check_significance_of_difference, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_change_and_zero_line, plot_time_series, read_lat_lon_arrays, read_monthly_time_series, plot_profile_and_NoShip_line, plot_profile_and_many_NoShip_lines
 
 
 def process_index(c):
@@ -40,7 +40,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cdnc_liq'
+var = 'cot_liq'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
 
 # Uncertainty correlation coefficient for monthly averages
@@ -66,9 +66,12 @@ grid_extent = [west_lon, east_lon, south_lat, north_lat]
 
 # Create vectors of dates for plotting
 dates = {}
-dates['months'] = [datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d') for year in range(start_year, end_year + 1) for month in range(1, 13)]
-dates['years'] = [datetime(year, 1, 1) for year in range(start_year, end_year + 1)]
-
+dates['months'] = []; dates['years'] = []
+for year in range(start_year, end_year + 1):
+    dates['years'].append(datetime(year, 1, 1))
+    for month in range(1, 13):
+        dates['months'].append(datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d'))
+        
 # Months dictionary 
 month_string = {
     1: "January",
@@ -110,6 +113,8 @@ lon_claas = lon_claas[istart:iend, jstart:jend]
 time_series['data'] = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 if var == 'cfc_day':
     time_series['unc'] = read_monthly_time_series('cfc_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
+elif var == 'cot_liq_log':
+    time_series['unc'] = read_monthly_time_series('cot_liq_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 else:
     time_series['unc'] = read_monthly_time_series(var + '_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 
@@ -168,32 +173,45 @@ centered['mean'], centered['std'], centered['N'] = calculate_across_corridor_ave
 centered['unc'] = center_data_along_corridor(time_series['unc_mean'], centered['latitude_indices'], centered['longitude_indices'])
 centered['unc_mean'] = np.sqrt(((1 / centered['N']) * (centered['std']**2)) + unc_coeff * (np.nanmean(centered['unc'], axis = 0)**2))
 
-# Calculate curve to imitate absence of the shipping corridor
+# =============================================================================
+#  Calculate curve to imitate absence of the shipping corridor
+# =============================================================================
 
 corridor_half_range = 250 # Curve fitted based on th 250-400 km range from corridor center on either side. 
 core_half_range = 75 # Average corridor effect based on the central 150 km-wide area.
 
-centered['mean_NoShip'] = calculate_NoShip_curve(avg_distances, centered['mean'], corridor_half_range, 400, 3)
+centered['mean_NoShip_250'] = calculate_NoShip_curve(avg_distances, centered['mean'], corridor_half_range, 400, 3)
+
+# Calculate uncertainty of the no-ship curve (std of 4 fits)
+mean_NoShip_fits = np.full((len(centered['mean_NoShip_250']), 5), np.nan)
+mean_NoShip_fits[:, 0] = calculate_NoShip_curve(avg_distances, centered['mean'], 150, 300, 3)
+mean_NoShip_fits[:, 1] = calculate_NoShip_curve(avg_distances, centered['mean'], 200, 350, 3)
+mean_NoShip_fits[:, 2] = centered['mean_NoShip_250']
+mean_NoShip_fits[:, 3] = calculate_NoShip_curve(avg_distances, centered['mean'], 300, 450, 3)
+mean_NoShip_fits[:, 4] = calculate_NoShip_curve(avg_distances, centered['mean'], 350, 500, 3)
+centered['mean_NoShip_std'] = np.nanstd(mean_NoShip_fits, axis = 1)
 
 # Create shorter profile plots mean values and uncertainties, centered on the corridor
 short_half_range = 350
 avg_distances_short = create_short_across_corridor_profiles(short_half_range, avg_distances, avg_distances)
 centered['mean_short'] = create_short_across_corridor_profiles(short_half_range, avg_distances, centered['mean'])
-centered['mean_short_NoShip'] = create_short_across_corridor_profiles(short_half_range, avg_distances, centered['mean_NoShip'])
+centered['mean_short_NoShip'] = create_short_across_corridor_profiles(short_half_range, avg_distances, centered['mean_NoShip_250'])
 centered['unc_mean_short'] = create_short_across_corridor_profiles(short_half_range, avg_distances, centered['unc_mean'])
 
 # And calculate corridor effect
 corridor_effect = {}
 corridor_effect['profile'] = centered['mean_short'] - centered['mean_short_NoShip']
-corridor_effect['profile_unc'] = centered['unc_mean_short']
+# corridor_effect['profile_unc'] = centered['unc_mean_short']
+corridor_effect['profile_unc'] = np.sqrt(centered['unc_mean_short']**2 + centered['mean_NoShip_std']**2)
 corridor_effect['mean'] = np.nanmean(corridor_effect['profile'][abs(avg_distances_short) < core_half_range])
+corridor_effect['mean_percent'] = 100 * corridor_effect['mean'] / np.nanmean(centered['mean'][abs(avg_distances_short) < core_half_range])
 corridor_effect['std'] = np.nanstd(corridor_effect['profile'][abs(avg_distances_short) < core_half_range])
 corridor_effect['N_points'] = np.nansum(corridor_effect['profile'][abs(avg_distances_short) < core_half_range]) / corridor_effect['mean']
 corridor_effect['unc_mean'] = np.sqrt(((1/corridor_effect['N_points']) * corridor_effect['std']**2) + (unc_coeff * np.nanmean(corridor_effect['profile_unc'][abs(avg_distances_short) < core_half_range])**2))
-
+corridor_effect['unc_percent'] = 100 * corridor_effect['unc_mean'] / np.nanmean(centered['mean'][abs(avg_distances_short) < core_half_range])
 
 # Create maps of time series mean values and uncertainties
-create_map = False
+create_map = True
 if create_map:
 
     # Of time series mean
@@ -202,22 +220,24 @@ if create_map:
     # Of time series mean uncertainties
     make_map(var, time_series['unc_mean'], ' ', np.nanmin(time_series['unc_mean']), np.nanmax(time_series['unc_mean']), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_uncertainty.png', saveplot = True)
 
-create_profile_plots = False
+create_profile_plots = True
 if create_profile_plots:
 
     # Plot long profile of mean values
-    plot_profile_and_NoShip_line(var, centered['mean'], centered['unc_mean'], centered['mean_NoShip'], avg_distances, zero_index, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_across_sc_long.png', plot_NoShip_line = False, plot_std_band = True, saveplot = True)
+    plot_profile_and_NoShip_line(var, centered['mean'], centered['unc_mean'], centered['mean_NoShip_250'], centered['mean_NoShip_std'], avg_distances, zero_index, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_across_sc_long.png', plot_NoShip_line = False, plot_data_unc = True, plot_NoShip_unc = False, saveplot = False)
 
     # Plot profile of mean values
-    plot_profile_and_NoShip_line(var, centered['mean_short'], centered['unc_mean_short'], centered['mean_short_NoShip'], avg_distances_short, zero_index, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_across_sc.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
+    plot_profile_and_NoShip_line(var, centered['mean_short'], centered['unc_mean_short'], centered['mean_short_NoShip'], centered['mean_NoShip_std'], avg_distances_short, zero_index, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_across_sc.png', plot_NoShip_line = True, plot_data_unc = True, plot_NoShip_unc = True, saveplot = True)
 
+    # TEST: Plot profiles of the four different cubic fits    
+    plot_profile_and_many_NoShip_lines(var, centered['mean_short'], centered['unc_mean_short'], mean_NoShip_fits, avg_distances_short, zero_index, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_across_sc_with_5_NoShip_fits.png', plot_data_unc=True, saveplot=True)
 
 create_profile_difference_plots = True
 save_profile_difference_data = True
 if create_profile_difference_plots:
 
     # Plot profile of mean values
-    plot_change_and_zero_line(var, corridor_effect['profile'], corridor_effect['profile_unc'], avg_distances_short, zero_index, corridor_effect['mean'], corridor_effect['unc_mean'], ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_change_across_sc.png', plot_std_band = True, saveplot = True)
+    plot_change_and_zero_line(var, corridor_effect['profile'], corridor_effect['profile_unc'], avg_distances_short, zero_index, corridor_effect['mean'], corridor_effect['unc_mean'], corridor_effect['mean_percent'], corridor_effect['unc_percent'], ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_change_across_sc.png', plot_data_unc = True, saveplot = True)
 
     if save_profile_difference_data:
 
@@ -275,7 +295,7 @@ if plot_all_monthly_profiles:
 
     for i in range(centered['monthly_profiles'].shape[1]):
 
-        plot_profile_and_NoShip_line(var, centered['monthly_profiles'][:, i], centered['monthly_profiles_unc'][:, i], centered['monthly_profiles_NoShip'][:, i], avg_distances, zero_index, var + ' profile, ' + dates['months'][i].strftime("%Y-%m"), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_monthly_profiles/' + var.upper() + '_long_profile_' + dates['months'][i].strftime("%Y%m") + '.png', plot_NoShip_line=True, plot_std_band=True, saveplot=True)
+        plot_profile_and_NoShip_line(var, centered['monthly_profiles'][:, i], centered['monthly_profiles_unc'][:, i], centered['monthly_profiles_NoShip'][:, i], centered['monthly_profiles_NoShip'][:, i], avg_distances, zero_index, var + ' profile, ' + dates['months'][i].strftime("%Y-%m"), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_monthly_profiles/' + var.upper() + '_long_profile_' + dates['months'][i].strftime("%Y%m") + '.png', plot_NoShip_line=True, plot_data_unc=True, plot_NoShip_unc=False, saveplot=True)
 
 
 # =============================================================================
@@ -327,9 +347,9 @@ if analyze_yearly_trends:
 
             for i in range(end_year - start_year + 1):
 
-                plot_profile_and_NoShip_line(var, centered[temp_res + '_profiles_mean'][:, i], centered[temp_res + '_profiles_unc'][:, i], centered[temp_res + '_profiles_mean'][:, i], avg_distances, zero_index, var.upper() + ' mean profile in ' + str(start_year + i), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_annual_profiles/' + var.upper() + '_' + temp_res + '_long_profile_' + str(start_year + i) + '.png', plot_NoShip_line = False, plot_std_band = True, saveplot = True)
+                plot_profile_and_NoShip_line(var, centered[temp_res + '_profiles_mean'][:, i], centered[temp_res + '_profiles_unc'][:, i], centered[temp_res + '_profiles_mean'][:, i], centered[temp_res + '_profiles_mean'][:, i], avg_distances, zero_index, var.upper() + ' mean profile in ' + str(start_year + i), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_annual_profiles/' + var.upper() + '_' + temp_res + '_long_profile_' + str(start_year + i) + '.png', plot_NoShip_line = False, plot_data_unc = True, plot_NoShip_unc = False, saveplot = True)
 
-                plot_profile_and_NoShip_line(var, centered[temp_res + '_profiles_mean'][:, i], centered[temp_res + '_profiles_unc'][:, i], centered[temp_res + '_profiles_NoShip'][:, i], avg_distances_short, zero_index, var.upper() + ' mean profile in ' + str(start_year + i), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_annual_profiles/' + var.upper() + '_' + temp_res + '_profile_' + str(start_year + i) + '.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
+                plot_profile_and_NoShip_line(var, centered[temp_res + '_profiles_mean'][:, i], centered[temp_res + '_profiles_unc'][:, i], centered[temp_res + '_profiles_NoShip'][:, i], centered[temp_res + '_profiles_NoShip'][:, i], avg_distances_short, zero_index, var.upper() + ' mean profile in ' + str(start_year + i), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/All_annual_profiles/' + var.upper() + '_' + temp_res + '_profile_' + str(start_year + i) + '.png', plot_NoShip_line = True, plot_data_unc = True, plot_NoShip_unc = False, saveplot = True)
 
 
 # =============================================================================
