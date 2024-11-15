@@ -66,8 +66,12 @@ plot_extent = [west_lon, east_lon, south_lat, north_lat]
 grid_extent = [west_lon, east_lon, south_lat, north_lat]
 
 # Create vector of dates for plotting
-dates = [datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d')
-         for year in range(start_year, end_year + 1) for month in range(1, 13)]
+dates = {}
+dates['months'] = []; dates['years'] = []
+for year in range(start_year, end_year + 1):
+    dates['years'].append(datetime(year, 1, 1))
+    for month in range(1, 13):
+        dates['months'].append(datetime.strptime(str(year) + str(month).zfill(2) + '01', '%Y%m%d'))
 
 # Define a "centered" dictionary, to include data and results centered on the corridor center
 centered = {}
@@ -109,6 +113,8 @@ lon_claas = lon_claas[istart:iend, jstart:jend]
 data = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 if var == 'cfc_day':
     data_unc = read_monthly_time_series('cfc_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
+elif var == 'cot_liq_log':
+    data_unc = read_monthly_time_series('cot_liq_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)    
 else:
     data_unc = read_monthly_time_series(var + '_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 
@@ -191,18 +197,32 @@ centered['monthly_profile_means_short'] = np.swapaxes(np.array([create_short_acr
 centered['monthly_profile_unc_short'] = np.swapaxes(np.array([create_short_across_corridor_profiles(350, avg_distances, centered['monthly_profile_unc'][:, m]) for m in range(12)]), 0, 1)
 
 
+# =============================================================================
 # Calculate curve to create NoShip profiles 
+# =============================================================================
 
 corridor_half_range = 250 # Curve fitted based on th 250-400 km range from corridor center on either side. 
 core_half_range = 75 # Average corridor effect based on the central 150 km-wide area.
 
-centered['monthly_NoShip_profile_means'] = np.swapaxes(np.array([calculate_NoShip_curve(avg_distances, centered['monthly_profile_means'][:, m], corridor_half_range, 400, 3) for m in range(12)]), 0, 1)
+centered['monthly_NoShip_profile_means_250'] = np.swapaxes(np.array([calculate_NoShip_curve(avg_distances, centered['monthly_profile_means'][:, m], corridor_half_range, 400, 3) for m in range(12)]), 0, 1)
+
+# Calculate uncertainty of the no-ship curve (std of 4 fits)
+mean_NoShip_fits = np.full((len(avg_distances), 12, 5), np.nan)
+
+mean_NoShip_fits[:, :, 0] = np.swapaxes(np.array([calculate_NoShip_curve(avg_distances, centered['monthly_profile_means'][:, m], 150, 300, 3) for m in range(12)]), 0, 1)
+mean_NoShip_fits[:, :, 1] = np.swapaxes(np.array([calculate_NoShip_curve(avg_distances, centered['monthly_profile_means'][:, m], 200, 350, 3) for m in range(12)]), 0, 1)
+mean_NoShip_fits[:, :, 2] = centered['monthly_NoShip_profile_means_250']
+mean_NoShip_fits[:, :, 3] = np.swapaxes(np.array([calculate_NoShip_curve(avg_distances, centered['monthly_profile_means'][:, m], 300, 450, 3) for m in range(12)]), 0, 1)
+mean_NoShip_fits[:, :, 4] = np.swapaxes(np.array([calculate_NoShip_curve(avg_distances, centered['monthly_profile_means'][:, m], 350, 500, 3) for m in range(12)]), 0, 1)
+centered['mean_NoShip_std'] = np.nanstd(mean_NoShip_fits, axis = 2)
 
 # Create shorter NoShip profiles per month 
-centered['monthly_NoShip_profile_means_short'] = np.swapaxes(np.array([create_short_across_corridor_profiles(350, avg_distances, centered['monthly_NoShip_profile_means'][:, m]) for m in range(12)]), 0, 1)
+centered['monthly_NoShip_profile_means_short'] = np.swapaxes(np.array([create_short_across_corridor_profiles(350, avg_distances, centered['monthly_NoShip_profile_means_250'][:, m]) for m in range(12)]), 0, 1)
 
 # Calculate profiles of differences (Ship - NoShip), their averages and corresponding uncertainties
 corridor_effect['monthly_profiles'] = centered['monthly_profile_means_short'] - centered['monthly_NoShip_profile_means_short']
+
+corridor_effect['monthly_profiles_unc'] = np.sqrt((centered['mean_NoShip_std'])**2 + (centered['monthly_profile_unc'])**2)
 
 corridor_effect['monthly_mean'] = [np.nanmean(corridor_effect['monthly_profiles'][abs(avg_distances) < core_half_range, m]) for m in range(12)]
 
@@ -210,15 +230,15 @@ corridor_effect['monthly_std'] = np.array([np.nanstd(corridor_effect['monthly_pr
 
 corridor_effect['monthly_N'] = np.array([np.round(np.nansum(corridor_effect['monthly_profiles'][abs(avg_distances) < core_half_range, m]) / corridor_effect['monthly_mean'][m]) for m in range(12)])
 
-corridor_effect['monthly_unc'] = np.array([np.sqrt(((1 / corridor_effect['monthly_N'][m]) * (corridor_effect['monthly_std'][m]**2)) + unc_coeff * (np.nanmean(centered['monthly_profile_unc_short'][abs(avg_distances) < core_half_range, m], axis = 0)**2)) for m in range(12)])
+corridor_effect['monthly_unc'] = np.array([np.sqrt(((1 / corridor_effect['monthly_N'][m]) * (corridor_effect['monthly_std'][m]**2)) + unc_coeff * (np.nanmean(corridor_effect['monthly_profiles_unc'][abs(avg_distances) < core_half_range, m], axis = 0)**2)) for m in range(12)])
 
 # Plot profiles: mean values and differences, separately (one plot/month) and all together. 
-plot_monthly_profiles_separately = False
+plot_monthly_profiles_separately = True
 if plot_monthly_profiles_separately:
 
     for m in range(12):
 
-        plot_profile_and_NoShip_line(var, centered['monthly_profile_means_short'][:, m], centered['monthly_profile_unc_short'][:, m], centered['monthly_NoShip_profile_means_short'][:, m], avg_distances, zero_index, varSymbol[var] + ' across shipping corridor, ' + month_string[m+1] + ' average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/'  + var.upper() + '_profile_average_month_' + str(m+1).zfill(2) + '_' + str(start_year) + '-' + str(end_year) + '.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
+        plot_profile_and_NoShip_line(var, centered['monthly_profile_means_short'][:, m], centered['monthly_profile_unc_short'][:, m], centered['monthly_NoShip_profile_means_short'][:, m], centered['mean_NoShip_std'][:, m], avg_distances, zero_index, varSymbol[var] + ' across shipping corridor, ' + month_string[m+1] + ' average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/'  + var.upper() + '_profile_average_month_' + str(m+1).zfill(2) + '_' + str(start_year) + '-' + str(end_year) + '.png', plot_NoShip_line = True, plot_data_unc = True, plot_NoShip_unc = True, saveplot = True)
 
 
 plot_monthly_profiles_in_one_plot = True
@@ -227,12 +247,12 @@ if plot_monthly_profiles_in_one_plot:
     plot_12_monthly_profiles(var, month_string, varSymbol[var] + ' across shipping corridor', centered['monthly_profile_means_short'], centered['monthly_profile_unc_short'], avg_distances, zero_index, avg_distances_short, 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/' + var.upper() + '_12_monthly_mean_profiles_across_sc.png', plot_unc_bands = True, plot_zero_line = False, saveplot = True)
 
 
-plot_monthly_difference_profiles_separately = False
+plot_monthly_difference_profiles_separately = True
 if plot_monthly_difference_profiles_separately:
 
     for m in range(12):
 
-        plot_profile_and_NoShip_line(var, corridor_effect['monthly_profiles'][:, m], centered['monthly_profile_unc_short'][:, m], np.zeros_like(centered['monthly_profile_means_short'][:, m]), avg_distances_short, zero_index, varSymbol[var] + ' across shipping corridor, ' + month_string[m+1] + ' average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/'  + var.upper() + '_difference_profile_average_month_' + str(m+1).zfill(2) + '_' + str(start_year) + '-' + str(end_year) + '.png', plot_NoShip_line = True, plot_std_band = True, saveplot = True)
+        plot_profile_and_NoShip_line(var, corridor_effect['monthly_profiles'][:, m], corridor_effect['monthly_profiles_unc'][:, m], np.zeros_like(centered['monthly_profile_means_short'][:, m]), np.zeros_like(centered['monthly_profile_means_short'][:, m]), avg_distances_short, zero_index, varSymbol[var] + ' across shipping corridor, ' + month_string[m+1] + ' average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/'  + var.upper() + '_difference_profile_average_month_' + str(m+1).zfill(2) + '_' + str(start_year) + '-' + str(end_year) + '.png', plot_NoShip_line = True, plot_data_unc = True, plot_NoShip_unc = False, saveplot = True)
 
 
 plot_monthly_diff_profiles_in_one_plot = True
@@ -255,16 +275,16 @@ if create_monthly_maps:
 
 
 # Plot seasonal variation of area averages and profile differences
-plot_intra_annual= False
+plot_intra_annual= True
 if plot_intra_annual:
 
-    plot_intra_annual_variation(var, area_mean_per_month, area_unc_per_month, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/' + var.upper() + '_area_weighted_intra-annual_mean_and_uncertainty.png', plot_std_band = True, plot_zero_line = False, saveplot = True)
+    plot_intra_annual_variation(var, area_mean_per_month, area_unc_per_month, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/' + var.upper() + '_area_weighted_intra-annual_mean_and_uncertainty.png', plot_unc_band = True, plot_zero_line = False, saveplot = True)
 
-    plot_intra_annual_variation(var, corridor_effect['monthly_mean'], corridor_effect['monthly_unc'], ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/' + var.upper() + '_intra-annual_corridor_effect_and_uncertainty.png', plot_std_band = True, plot_zero_line = True, saveplot = True)
+    plot_intra_annual_variation(var, corridor_effect['monthly_mean'], corridor_effect['monthly_unc'], ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Seasonal/' + var.upper() + '_intra-annual_corridor_effect_and_uncertainty.png', plot_unc_band = True, plot_zero_line = True, saveplot = True)
 
 
 # Save seasonal averages and effects to combine variables in one plot (CDNC and CRE, LWP and CFC_DAY)
-save_intra_annual = False
+save_intra_annual = True
 if save_intra_annual:
 
     # Intra-annual averages and uncertainties
