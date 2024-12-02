@@ -193,6 +193,9 @@ centered['mean_profile_per_hour'] = np.array(centered['mean_profile_per_hour'])
 centered['std_profile_per_hour'] = np.array(centered['std_profile_per_hour'])
 centered['N_profile_per_hour'] = np.array(centered['N_profile_per_hour'])
 
+centered['unc_profile_per_hour'] = np.sqrt((1 / centered['N_profile_per_hour']) * (centered['std_profile_per_hour']**2))
+
+
 # Create shorter profile plots
 short_half_range = 350
 
@@ -227,7 +230,7 @@ centered['mean_NoShip_std'] = np.nanstd(mean_NoShip_fits, axis = 2)
 # Calculate profiles of differences (Ship - NoShip), ...
 corridor_effect['mean_profile_per_hour'] = centered['mean_profile_per_hour_short'] - centered['mean_NoShip_profile_per_hour_250_short']
 
-corridor_effect['std_profile_per_hour'] = np.sqrt(centered['std_profile_per_hour_short']**2 + centered['mean_NoShip_std']**2)
+corridor_effect['unc_profile_per_hour'] = np.sqrt((centered['mean_NoShip_std'])**2 + (centered['unc_profile_per_hour'])**2)
 
 # ... their averages and corresponding stds, per hour
 corridor_effect['mean_per_hour'] = np.array([np.nanmean(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < core_half_range]) for h in range(24)])
@@ -236,7 +239,7 @@ corridor_effect['std_per_hour'] = np.array([np.nanstd(corridor_effect['mean_prof
 
 corridor_effect['N_per_hour'] = np.array([np.round(np.nansum(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < core_half_range]) / corridor_effect['mean_per_hour'][h]) for h in range(24)])
 
-corridor_effect['unc_per_hour'] = np.array([np.sqrt(((1 / corridor_effect['N_per_hour'][h]) * (corridor_effect['std_per_hour'][h]**2)) + unc_coeff * (np.nanmean(corridor_effect['std_profile_per_hour'][h, abs(avg_distances) < core_half_range], axis = 0)**2)) for h in range(24)])
+corridor_effect['unc_per_hour'] = np.array([np.sqrt(((1 / corridor_effect['N_per_hour'][h]) * (corridor_effect['std_per_hour'][h]**2)) + unc_coeff * (np.nanmean(corridor_effect['unc_profile_per_hour'][h, abs(avg_distances) < core_half_range], axis = 0)**2)) for h in range(24)])
 
 # Remove cases where map is not entirely covered
 corridor_effect['mean_per_hour'][time_series['spatial_Ncells_per_hour'] < lat_claas.size] = np.nan
@@ -275,8 +278,8 @@ if var != 'cfc':
     corridor_effect['std_per_hour'][15] = np.nan
     corridor_effect['mean_profile_per_hour'][8, :] = np.nan
     corridor_effect['mean_profile_per_hour'][15, :] = np.nan
-    corridor_effect['std_profile_per_hour'][8, :] = np.nan
-    corridor_effect['std_profile_per_hour'][15, :] = np.nan
+    corridor_effect['unc_profile_per_hour'][8, :] = np.nan
+    corridor_effect['unc_profile_per_hour'][15, :] = np.nan
 
 # 2. Spatial time series averages per hour
 plot_diurnal_spatial_averages = True
@@ -293,14 +296,14 @@ if plot_24_profiles:
 
         if not np.all(np.isnan(centered['mean_profile_per_hour'][i, :])):
 
-            plot_profile_and_NoShip_line(var, centered['mean_profile_per_hour'][i, :], centered['std_profile_per_hour'][i, :], centered['mean_NoShip_profile_per_hour_250_short'][i, :], centered['mean_NoShip_std'][i, :], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + str(i).zfill(2) + ':30 UTC average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_long_profile_average_at_' + str(i).zfill(2) + '30UTC.png', plot_NoShip_line = True, plot_data_unc = True, plot_NoShip_unc = True, saveplot = True)
+            plot_profile_and_NoShip_line(var, centered['mean_profile_per_hour'][i, :], centered['unc_profile_per_hour'][i, :], centered['mean_NoShip_profile_per_hour_250_short'][i, :], centered['mean_NoShip_std'][i, :], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + str(i).zfill(2) + ':30 UTC average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_long_profile_average_at_' + str(i).zfill(2) + '30UTC.png', plot_NoShip_line = True, plot_data_unc = True, plot_NoShip_unc = True, saveplot = True)
 
-            plot_profile_and_NoShip_line(var, centered['mean_profile_per_hour_short'][i, :], centered['std_profile_per_hour_short'][i, :], centered['mean_NoShip_profile_per_hour_250_short'][i, :], centered['mean_NoShip_std'][i, :], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + str(i).zfill(2) + ':30 UTC average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_profile_average_at_' + str(i).zfill(2) + '30UTC.png', plot_NoShip_line = True, plot_data_unc = True, plot_NoShip_unc = True, saveplot = True)
+            plot_profile_and_NoShip_line(var, centered['mean_profile_per_hour_short'][i, :], centered['unc_profile_per_hour'][i, :], centered['mean_NoShip_profile_per_hour_250_short'][i, :], centered['mean_NoShip_std'][i, :], avg_distances, zero_index, var.upper() + ' across shipping corridor, ' + str(i).zfill(2) + ':30 UTC average', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_profile_average_at_' + str(i).zfill(2) + '30UTC.png', plot_NoShip_line = True, plot_data_unc = True, plot_NoShip_unc = True, saveplot = True)
 
 
 # Plot diurnal corridor effect
 plot_diurnal(var, corridor_effect['mean_per_hour'], corridor_effect['unc_per_hour'], 'Diurnal corridor effect', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_diurnal_corridor_effect_and_std.png', plot_zero_line = True, saveplot = True)         
 
-plot_all_hourly_profiles(var, corridor_effect['mean_profile_per_hour'], corridor_effect['std_profile_per_hour'], avg_distances, zero_index, avg_distances_short, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_all_hourly_diff_profiles_across_sc.png', plot_unc_bands = False, plot_zero_line = True, saveplot = True)
+plot_all_hourly_profiles(var, corridor_effect['mean_profile_per_hour'], corridor_effect['unc_profile_per_hour'], avg_distances, zero_index, avg_distances_short, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Diurnal/' + var.upper() + '_all_hourly_diff_profiles_across_sc.png', plot_unc_bands = False, plot_zero_line = True, saveplot = True)
 
 print('check')
