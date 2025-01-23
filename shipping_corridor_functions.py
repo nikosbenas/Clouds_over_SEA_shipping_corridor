@@ -16,6 +16,7 @@ import cartopy.feature as cf
 from scipy.interpolate import interp1d
 
 
+
 def find_bounding_box_indices(bounding_box, lat_array, lon_array):
 
     '''
@@ -1072,6 +1073,7 @@ def plot_change_and_zero_line_for_two(var, profile_data1, profile_data_unc1, lab
         plt.fill_between(distance, profile_data2 - profile_data_unc2, profile_data2 + profile_data_unc2, color='navajowhite', alpha=0.5, linewidth=0)
 
     plt.ylabel('$\Delta$' + varSymbol[var] + ' [' + varUnits[var] + ']')
+
     plt.xlabel('Distance from corridor center, W to E [km]')
     plt.title(title)
     # plt.legend()  
@@ -1705,3 +1707,52 @@ def check_significance_of_difference(array1, unc1, array2, unc2):
     significant = abs_diff >= unc_comb
 
     return significant
+
+    
+    
+def plot_data_with_mask(var, data_array, bool_array, title, minval, maxval, grid_extent, plot_extent, cmap_color, cmap_grey, ext, filename, saveplot):
+    
+    fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
+
+    ax.set_title(title, fontsize = 10)
+
+    # Mask the data for false and true conditions
+    masked_data_false = np.ma.masked_where(bool_array, data_array)
+    masked_data_true = np.ma.masked_where(~bool_array, data_array)
+    
+    # Plot False cases using grayscale colormap
+    im_grey = ax.imshow(masked_data_false, cmap=cmap_grey, vmin=minval, vmax=maxval, extent=grid_extent, transform=ccrs.PlateCarree())
+    # Plot True cases using color colormap
+    im_color = ax.imshow(masked_data_true, cmap=cmap_color, vmin=minval, vmax=maxval, extent=grid_extent, transform=ccrs.PlateCarree())
+
+    ax.add_feature(cf.COASTLINE)
+
+    ax.set_extent(plot_extent)
+
+    # Add grid lines
+    gl = ax.gridlines(draw_labels=True, crs=ccrs.PlateCarree(), color='gray', linestyle='--', linewidth=0.5)
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.xlabel_style = {'fontsize': 8} 
+    gl.ylabel_style = {'fontsize': 8}  
+
+    # Add a colorbar for the color colormap
+    cbar = fig.colorbar(im_color, shrink=0.6, extend=ext)
+    cbar.set_label(f'[{varUnits[var]}]', fontsize=10)
+    cbar.ax.tick_params(labelsize=10)
+    
+    # Add a colorbar for the grayscale portion
+    cbar_grey = fig.colorbar(im_grey, shrink=0.6, extend=ext, orientation='vertical', pad=0.05)
+    cbar_grey.ax.tick_params(labelsize=10)
+    
+    plt.tight_layout()
+
+    if saveplot:
+        plt.savefig(filename, bbox_inches='tight', dpi=300)
+
+    plt.close()
+
+
+
+
+
