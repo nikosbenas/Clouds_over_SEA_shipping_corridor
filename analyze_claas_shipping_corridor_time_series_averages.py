@@ -15,7 +15,7 @@ import sys
 import numpy as np
 sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 from claas3_dictionaries import FileNameStart, varSymbol
-from shipping_corridor_functions import analyze_annual_trends_from_specific_months, calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_average_corridor_value_per_month, calculate_average_profiles_per_month, calculate_time_series_means, calculate_temporal_mean_corridor_effect, calculate_running_mean, center_data_along_corridor, center_shipping_corridor_perpendicular_lines, check_significance_of_difference, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_change_and_zero_line, plot_time_series, read_lat_lon_arrays, read_monthly_time_series, plot_profile_and_NoShip_line, plot_profile_and_many_NoShip_lines
+from shipping_corridor_functions import analyze_annual_trends_from_specific_months, calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_average_corridor_value_per_month, calculate_average_profiles_per_month, calculate_time_series_means, calculate_temporal_mean_corridor_effect, calculate_running_mean, center_data_along_corridor, center_shipping_corridor_perpendicular_lines, check_significance_of_difference, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_change_and_zero_line, plot_time_series, read_lat_lon_arrays, read_monthly_time_series, plot_profile_and_NoShip_line, plot_profile_and_many_NoShip_lines, plot_data_with_mask
 
 
 def process_index(c):
@@ -40,15 +40,17 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cot_liq'
+var = 'cal'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
+if var == 'cal':
+    data_folder = '/net/pc190604/nobackup/users/benas/SARAH-3/Level_3/' + FileNameStart[var]
 
 # Uncertainty correlation coefficient for monthly averages
 unc_coeff = 0.1
 
 # Select the time period to analyze CLAAS-3 data
 start_year = 2004
-end_year = 2023
+end_year = 2019
 
 # Lats and lons at four corners of region: ul, ur, lr, ll
 # north_lat = 10; south_lat = -35
@@ -100,6 +102,8 @@ centered = {}
 
 # Read CLAAS lat, lon once
 claas3_aux_file = '/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends/claas3_level3_aux_data_005deg.nc'
+if var == 'cal':
+    claas3_aux_file = '/nobackup/users/benas/SARAH-3/Level_3/CALmm/CALmm200401010000004231000101MA.nc'
 lat_claas, lon_claas = read_lat_lon_arrays(claas3_aux_file)
 
 # Find array indices of lat and lon at bounding box corners
@@ -110,12 +114,18 @@ lat_claas = lat_claas[istart:iend, jstart:jend]
 lon_claas = lon_claas[istart:iend, jstart:jend]
 
 # Loop over all years and months to read CLAAS-3 data and their uncertainties into 3D arrays and include them in the time series dictionary
-time_series['data'] = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 if var == 'cfc_day':
+    time_series['data'] = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
     time_series['unc'] = read_monthly_time_series('cfc_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 elif var == 'cot_liq_log':
+    time_series['data'] = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
     time_series['unc'] = read_monthly_time_series('cot_liq_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
+elif var =='cal':
+    time_series['data'] = read_monthly_time_series('CAL', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
+    # THERE ARE NO UNCERTAINTY ESTIMATIONS IN SARAH-3
+    time_series['unc'] = np.full_like(time_series['data'], np.nan)
 else:
+    time_series['data'] = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
     time_series['unc'] = read_monthly_time_series(var + '_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 
 # =============================================================================
@@ -224,7 +234,7 @@ create_profile_plots = True
 if create_profile_plots:
 
     # Plot long profile of mean values
-    plot_profile_and_NoShip_line(var, centered['mean'], centered['unc_mean'], centered['mean_NoShip_250'], centered['mean_NoShip_std'], avg_distances, zero_index, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_across_sc_long.png', plot_NoShip_line = False, plot_data_unc = True, plot_NoShip_unc = False, saveplot = False)
+    plot_profile_and_NoShip_line(var, centered['mean'], centered['unc_mean'], centered['mean_NoShip_250'], centered['mean_NoShip_std'], avg_distances, zero_index, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_across_sc_long.png', plot_NoShip_line = False, plot_data_unc = True, plot_NoShip_unc = False, saveplot = True)
 
     # Plot profile of mean values
     plot_profile_and_NoShip_line(var, centered['mean_short'], centered['unc_mean_short'], centered['mean_short_NoShip'], centered['mean_NoShip_std'], avg_distances_short, zero_index, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_across_sc.png', plot_NoShip_line = True, plot_data_unc = True, plot_NoShip_unc = True, saveplot = True)
@@ -233,17 +243,21 @@ if create_profile_plots:
     plot_profile_and_many_NoShip_lines(var, centered['mean_short'], centered['unc_mean_short'], mean_NoShip_fits, avg_distances_short, zero_index, ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_across_sc_with_5_NoShip_fits.png', plot_data_unc=True, saveplot=True)
 
 create_profile_difference_plots = True
-save_profile_difference_data = True
 if create_profile_difference_plots:
 
     # Plot profile of mean values
     plot_change_and_zero_line(var, corridor_effect['profile'], corridor_effect['profile_unc'], avg_distances_short, zero_index, corridor_effect['mean'], corridor_effect['unc_mean'], corridor_effect['mean_percent'], corridor_effect['unc_percent'], ' ', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/'  + var.upper() + '_time_series_mean_change_across_sc.png', plot_data_unc = True, saveplot = True)
 
-    if save_profile_difference_data:
+save_profile_difference_data = True
+if save_profile_difference_data:
 
-        np.save('npy_arrays_for_plots/' + var.upper() + '/' + var.upper() + '_time_series_mean_change_across_sc_' + str(start_year) + '-' + str(end_year) + '.npy', corridor_effect['profile'])
+    np.save('npy_arrays_for_plots/' + var.upper() + '/' + var.upper() + '_time_series_mean_change_across_sc_' + str(start_year) + '-' + str(end_year) + '.npy', corridor_effect['profile'])
 
-        np.save('npy_arrays_for_plots/' + var.upper() + '/' + var.upper() + '_time_series_mean_change_unc_across_sc_' + str(start_year) + '-' + str(end_year) + '.npy', corridor_effect['profile_unc'])
+    np.save('npy_arrays_for_plots/' + var.upper() + '/' + var.upper() + '_time_series_mean_change_unc_across_sc_' + str(start_year) + '-' + str(end_year) + '.npy', corridor_effect['profile_unc'])
+
+    np.save('npy_arrays_for_plots/' + var.upper() + '/' + var.upper() + '_time_series_mean_across_sc_' + str(start_year) + '-' + str(end_year) + '.npy', centered['mean_short'])
+
+    np.save('npy_arrays_for_plots/' + var.upper() + '/' + var.upper() + '_time_series_mean_unc_across_sc_' + str(start_year) + '-' + str(end_year) + '.npy', centered['unc_mean_short'])
 
 # =============================================================================
 # Analysis of monthly trends
@@ -273,7 +287,7 @@ centered['monthly_corridor_mean_smooth'], centered['monthly_corridor_unc_smooth'
 corridor_effect['monthly_mean_smooth'], corridor_effect['monthly_mean_unc_smooth'] = calculate_running_mean(corridor_effect['monthly_mean'], corridor_effect['monthly_mean_unc'], unc_coeff, 12)
 
 
-plot_monthly_time_series = False
+plot_monthly_time_series = True
 if plot_monthly_time_series:
 
     plot_time_series(dates['months'], centered['monthly_corridor_mean'], centered['monthly_corridor_unc'], var, 'Monthly averages over the corridor', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_monthly_time_series_over_corridor.png', plot_unc_band = True, plot_zero_line = False, saveplot = True)
@@ -290,7 +304,7 @@ corridor_effect['mean_before_2020'], _, _, corridor_effect['unc_mean_before_2020
 corridor_effect['mean_after_2020'], _, _, corridor_effect['unc_mean_after_2020'] = calculate_time_series_means(unc_coeff, corridor_effect['monthly_mean_smooth'], corridor_effect['monthly_mean_unc_smooth'], 2020, 1, 2023, 12, start_year)
 
 # Print ALL MONTHLY PROFILES
-plot_all_monthly_profiles = False
+plot_all_monthly_profiles = True
 if plot_all_monthly_profiles:
 
     for i in range(centered['monthly_profiles'].shape[1]):
@@ -302,7 +316,7 @@ if plot_all_monthly_profiles:
 # Compare maps of averages before and after 2020
 # =============================================================================
 
-compare_maps_of_averages_before_and_after_2020 = False
+compare_maps_of_averages_before_and_after_2020 = True
 if compare_maps_of_averages_before_and_after_2020:
 
     time_series['mean_before_2020'], _, _, time_series['unc_mean_before_2020'] = calculate_time_series_means(unc_coeff, time_series['data'], time_series['unc'], 2004, 1, 2019, 12, start_year) 
@@ -322,15 +336,15 @@ if compare_maps_of_averages_before_and_after_2020:
     make_map(var, time_series['diff_after-before_2020'], varSymbol[var] + '$_{, (2020-2023)}$ - ' + varSymbol[var] + '$_{, (2004-2019)}$', -limit, limit, grid_extent, plot_extent, 'RdBu_r', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_difference_after-before_2020.png', saveplot = True)
 
     # Make map of uncertainties of differences
-    make_map(var, time_series['unc_diff_after-before_2020'], 'Uncertainty of ' + varSymbol[var] + '$_{, (2020-2023)}$ - ' + varSymbol[var] + '$_{, (2004-2019)}$', np.nanmin(time_series['unc_diff_after-before_2020']), np.nanmax(time_series['unc_diff_after-before_2020']), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_difference_after-before_2020_unc.png', saveplot = True)
+    # make_map(var, time_series['unc_diff_after-before_2020'], 'Uncertainty of ' + varSymbol[var] + '$_{, (2020-2023)}$ - ' + varSymbol[var] + '$_{, (2004-2019)}$', np.nanmin(time_series['unc_diff_after-before_2020']), np.nanmax(time_series['unc_diff_after-before_2020']), grid_extent, plot_extent, 'viridis', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_difference_after-before_2020_unc.png', saveplot = True)
 
-    # plot_data_with_mask(var, time_series['diff_after-before_2020'], time_series['significance_after-before_2020'], var.upper() + ' after-before 2020', -limit, limit, grid_extent, plot_extent, 'RdBu_r', 'Greys', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_difference_after-before_2020_significance.png', saveplot = True)
+    plot_data_with_mask(var, time_series['unc_diff_after-before_2020'], time_series['significance_after-before_2020'], 'Uncertainty of ' + varSymbol[var] + '$_{, (2020-2023)}$ - ' + varSymbol[var] + '$_{, (2004-2019)}$', np.nanmin(time_series['unc_diff_after-before_2020']), np.nanmax(time_series['unc_diff_after-before_2020']), grid_extent, plot_extent, 'viridis', 'Greys', 'neither', 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_' + str(start_year) + '-' + str(end_year) + '_average_difference_after-before_2020_unc.png', saveplot = True)
 
 # =============================================================================
 # Analysis of yearly trends
 # =============================================================================
 
-analyze_yearly_trends = False
+analyze_yearly_trends = True
 if analyze_yearly_trends:
 
     temporal_resolutions = ['annual', 'SON']
@@ -342,7 +356,7 @@ if analyze_yearly_trends:
         # Plot time series of annual values and effects
         plot_time_series(dates['years'], corridor_effect[temp_res + '_mean'], corridor_effect[temp_res + '_mean_unc'], var, temp_res + ' corridor effect on ' + var.upper(), 'Figures/' + var.upper() + '/' + str(start_year) + '-' + str(end_year) + '/Trends/' + var.upper() + '_' + temp_res + '_time_series_corridor_effect.png', plot_unc_band=True, plot_zero_line=True, saveplot=True) 
 
-        plot_all_annual_profiles = False
+        plot_all_annual_profiles = True
         if plot_all_annual_profiles:
 
             for i in range(end_year - start_year + 1):
@@ -356,7 +370,7 @@ if analyze_yearly_trends:
 # Analysis of 12 monthly trends
 # =============================================================================
 
-analyze_12_monthly_trends = False
+analyze_12_monthly_trends = True
 if analyze_12_monthly_trends:
 
     centered['12_corridor_mean_time_series'] =  centered['monthly_corridor_mean'].reshape(int(len(centered['monthly_corridor_mean']) / 12), 12) 

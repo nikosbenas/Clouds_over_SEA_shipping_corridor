@@ -41,8 +41,10 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cfc_day'
+var = 'cal'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
+if var == 'cal':
+    data_folder = '/net/pc190604/nobackup/users/benas/SARAH-3/Level_3/' + FileNameStart[var]
 
 # Uncertainty correlation coefficient for monthly averages
 unc_coeff = 0.1
@@ -99,6 +101,8 @@ month_string = {
 
 # Read CLAAS lat, lon once
 claas3_aux_file = '/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends/claas3_level3_aux_data_005deg.nc'
+if var == 'cal':
+    claas3_aux_file = '/nobackup/users/benas/SARAH-3/Level_3/CALmm/CALmm200401010000004231000101MA.nc'
 lat_claas, lon_claas = read_lat_lon_arrays(claas3_aux_file)
 del claas3_aux_file
 
@@ -110,12 +114,18 @@ lat_claas = lat_claas[istart:iend, jstart:jend]
 lon_claas = lon_claas[istart:iend, jstart:jend]
 
 # Loop over all years and months to read CLAAS-3 data and their uncertainties into 3D arrays
-data = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 if var == 'cfc_day':
+    data = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
     data_unc = read_monthly_time_series('cfc_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 elif var == 'cot_liq_log':
-    data_unc = read_monthly_time_series('cot_liq_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)    
+    data = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
+    data_unc = read_monthly_time_series('cot_liq_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
+elif var =='cal':
+    data = read_monthly_time_series('CAL', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
+    # THERE ARE NO UNCERTAINTY ESTIMATIONS IN SARAH-3
+    data_unc = np.full_like(data, np.nan)   
 else:
+    data = read_monthly_time_series(var, data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
     data_unc = read_monthly_time_series(var + '_unc_mean', data_folder, start_year, end_year, istart, iend, jstart, jend, read_diurnal = False)
 
 # =============================================================================
@@ -262,7 +272,7 @@ if plot_monthly_diff_profiles_in_one_plot:
 
 
 # Create maps of mean values and uncertainties per month
-create_monthly_maps = False
+create_monthly_maps = True
 if create_monthly_maps:
 
     for m in range(12):
