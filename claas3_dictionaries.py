@@ -1,0 +1,301 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Dictionaries used in CLAAS-3 data processing
+
+Created on Mon May  1 12:00:22 2023
+
+@author: benas
+"""
+
+FileNameStart = {
+    'lwp': 'LWPmm',
+    'lwp_mmdc': 'LWPmd',
+    'lwp_16': 'LWPmm',
+    'lwp_allsky': 'LWPmm',
+    'lwp_16_allsky': 'LWPmm',
+    'cot_liq': 'LWPmm',
+    'cot_liq_log': 'LWPmm',
+    'cot_liq_mmdc': 'LWPmd',
+    'cot_16_liq': 'LWPmm',
+    'cre_liq': 'LWPmm',
+    'cre_liq_mmdc': 'LWPmd',
+    'cre_16_liq': 'LWPmm',
+    'iwp': 'IWPmm',
+    'iwp_allsky': 'IWPmm',
+    'iwp_16': 'IWPmm',
+    'iwp_16_allsky': 'IWPmm',
+    'cot_ice': 'IWPmm',
+    'cot_16_ice': 'IWPmm',
+    'cre_ice': 'IWPmm',
+    'cre_16_ice': 'IWPmm',
+    'cph': 'CPHmm',
+    'cph_day': 'CPHmm',
+    'cph_16': 'CPHmm',
+    'cph_16_day': 'CPHmm',
+    'cfc': 'CFCmm',
+    'cfc_day': 'CFCmm',
+    'cfc_night': 'CFCmm',
+    'cfc_low': 'CFCmm',
+    'cfc_middle': 'CFCmm',
+    'cfc_high': 'CFCmm',
+    'cfc_mmdc': 'CFCmd',
+    'cfc_day_mmdc': 'CFCmd',
+    'cma_prob': 'CFCmm',
+    'cma_prob_day': 'CFCmm',
+    'cma_prob_night': 'CFCmm',
+    'cth': 'CTOmm',
+    'cth_mmdc': 'CTOmd',
+    'ctp': 'CTOmm',
+    'cdnc_liq': 'LWPmm',
+    'cgt_liq': 'LWPmm',
+    'cdnc_liq_mmdc': 'LWPmd',
+    'cgt_liq_mmdc': 'LWPmd',
+    'SIS': 'SISmm',
+    'cal': 'CALmm',
+    'SW_flux': 'RSFmm',
+    'rsut': 'TRSmm'
+    }
+
+varUnits = {
+    'lwp': 'g m$^{-2}$',
+    'lwp_mmdc': 'g m$^{-2}$',
+    'lwp_16': 'g m$^{-2}$',
+    'lwp_allsky': 'g m$^{-2}$',
+    'lwp_16_allsky': 'g m$^{-2}$',
+    'cot_liq': '-',
+    'cot_liq_log': '-',
+    'cot_liq_mmdc': '-',
+    'cot_16_liq': '-',
+    'cre_liq': '$\mu$m',
+    'cre_liq_mmdc': '$\mu$m',
+    'cre_16_liq': '$\mu$m',
+    'iwp': 'g m$^{-2}$',
+    'iwp_16': 'g m$^{-2}$',
+    'iwp_allsky': 'g m$^{-2}$',
+    'iwp_16_allsky': 'g m$^{-2}$',
+    'cot_ice': '-',
+    'cot_16_ice': '-',
+    'cre_ice': '$\mu$m',
+    'cre_16_ice': '$\mu$m',
+    'cph': '%',
+    'cph_day': '%',
+    'cph_16': '%',
+    'cph_16_day': '%',
+    'cfc': '%',
+    'cfc_day': '%',
+    'cfc_night': '%',
+    'cfc_low': '%',
+    'cfc_middle': '%',
+    'cfc_high': '%',
+    'cfc_mmdc': '%',
+    'cma_prob': '%',
+    'cma_prob_day': '%',
+    'cma_prob_night': '%',
+    'cth': 'm',
+    'ctp': 'hPa',
+    'cdnc_liq': 'cm$^{-3}$',
+    'cdnc_liq_unc': 'cm$^{-3}$',
+    'cdnc_liq_mmdc': 'cm$^{-3}$',
+    'cgt_liq': 'm',
+    'cgt_liq_mmdc': 'm',
+    'SIS': 'W m$^{-2}$',
+    'cal': '-',
+    'SW_flux': 'W m$^{-2}$',
+    'rsut': 'W m$^{-2}$',
+    'spatial coverage': '%',
+    'temporal coverage': '%',
+    'nao': '-',
+    'SO2': 'ton month$^{-1}$',
+    'sst': '°C',
+    'emis': '-'
+    }
+
+varSymbol = {
+    'lwp': r'$W$',
+    'lwp_mmdc': r'$W$',
+    'lwp_16': r'$W_{1.6}$',
+    'lwp_allsky': r'$W_{all-sky}$',
+    'lwp_16_allsky': r'$W_{1.6, all-sky}$',
+    'cot_liq': r'$\tau$',
+    'cot_liq_log': r'$log(\tau)$',
+    'cot_liq_mmdc': r'$\tau$',
+    'cot_16_liq': r'$\tau$',
+    'cre_liq': r'$r_e$',
+    'cre_liq_mmdc': r'$r_e$',
+    'cre_16_liq': r'$r_e$',
+    'iwp': 'g m$^{-2}$',
+    'iwp_16': 'g m$^{-2}$',
+    'iwp_allsky': 'g m$^{-2}$',
+    'iwp_16_allsky': 'g m$^{-2}$',
+    'cot_ice': r'$\tau$',
+    'cot_16_ice': r'$\tau$',
+    'cre_ice': r'$r_e$',
+    'cre_16_ice': r'$r_e$',
+    'cph': '%',
+    'cph_day': '%',
+    'cph_16': '%',
+    'cph_16_day': '%',
+    'cfc': r'$f_c$',
+    'cfc_day': r'$f_{c, day}$',
+    'cfc_night': r'$f_{c, night}$',
+    'cfc_low': r'$f_{c, low}$',
+    'cfc_middle': r'$f_{c, middle}$',
+    'cfc_high': r'$f_{c, high}$',
+    'cfc_mmdc': r'$f_c$',
+    'cma_prob': '%',
+    'cma_prob_day': '%',
+    'cma_prob_night': '%',
+    'cth': 'm',
+    'ctp': 'hPa',
+    'cdnc_liq': r'$N_d$',
+    'cdnc_liq_unc': r'$N_d$',
+    'cdnc_liq_mmdc': r'$N_d$',
+    'cgt_liq': 'm',
+    'cgt_liq_mmdc': 'm',
+    'SIS': 'W m$^{-2}$',
+    'cal': 'CAL',
+    'SW_flux': 'W m$^{-2}$',
+    'rsut': 'W m$^{-2}$',
+    'spatial coverage': '%',
+    'temporal coverage': '%',
+    'nao': '-',
+    'SO2': 'ton month$^{-1}$',
+    'sst': 'SST',
+    'emis': r'$\epsilon$'
+    }
+
+minAvg = { 
+    'lwp': 0,
+    'lwp_16': 0,
+    'lwp_allsky': 0,  
+    'lwp_16_allsky': 0,  
+    'cot_liq': 0,  
+    'cot_16_liq': 0,  
+    'cre_liq': 3,  
+    'cre_16_liq': 3,  
+    'iwp': 0,
+    'iwp_16': 0, 
+    'iwp_allsky': 0,  
+    'iwp_16_allsky': 0,  
+    'cot_ice': 0,  
+    'cot_16_ice': 0,  
+    'cre_ice': 7,  
+    'cre_16_ice': 18,  
+    'cph': 0,  
+    'cph_day': 0,  
+    'cph_16': 0,  
+    'cph_16_day': 0,  
+    'cfc': 0,  
+    'cfc_day': 0,  
+    'cfc_night': 0,  
+    'cfc_low': 0,  
+    'cfc_middle': 0,  
+    'cfc_high': 0,  
+    'cma_prob': 0,  
+    'cma_prob_day': 0,  
+    'cma_prob_night': 0,  
+    'cth': 0,  
+    'ctp': 0,  
+    'cdnc_liq': 0, 
+    'spatial coverage': 0,
+    'temporal coverage': 0
+    } # All checked
+
+maxAvg = {
+    'lwp': 200,  
+    'lwp_16': 200,  
+    'lwp_allsky': 120,  
+    'lwp_16_allsky': 120,  
+    'cot_liq': 30,  
+    'cot_16_liq': 30,  
+    'cre_liq': 16,  
+    'cre_16_liq': 25,  
+    'iwp': 300,  
+    'iwp_16': 300,  
+    'iwp_allsky': 160,  
+    'iwp_16_allsky': 160,  
+    'cot_ice': 30,  
+    'cot_16_ice': 30,  
+    'cre_ice': 25,  
+    'cre_16_ice': 38,  
+    'cph': 100,  
+    'cph_day': 100,  
+    'cph_16': 100,  
+    'cph_16_day': 100,  
+    'cfc': 100,  
+    'cfc_day': 100,  
+    'cfc_night': 100,  
+    'cfc_low': 80,  
+    'cfc_middle': 80,  
+    'cfc_high': 80,  
+    'cma_prob': 100,  
+    'cma_prob_day': 100,  
+    'cma_prob_night': 100,  
+    'cth': 13500,  
+    'ctp': 850,  
+    'cdnc_liq': 300,  
+    'spatial coverage': 0,
+    'temporal coverage': 0
+    } # All checked
+
+extendMeanCbar = {
+    'lwp': 'max',  
+    'lwp_16': 'max',  
+    'lwp_allsky': 'max',  
+    'lwp_16_allsky': 'max',  
+    'cot_liq': 'max',  
+    'cot_16_liq': 'max',  
+    'cre_liq': 'neither',  
+    'cre_16_liq': 'neither',  
+    'iwp': 'max',  
+    'iwp_allsky': 'max',  
+    'iwp_16': 'max',  
+    'iwp_16_allsky': 'max',  
+    'cot_ice': 'max',  
+    'cot_16_ice': 'max',  
+    'cre_ice': 'neither',  
+    'cre_16_ice': 'neither',  
+    'cph': 'neither',  
+    'cph_day': 'neither',  
+    'cph_16': 'neither',  
+    'cph_16_day': 'neither',  
+    'cfc': 'neither',  
+    'cfc_day': 'neither',  
+    'cfc_night': 'neither',  
+    'cfc_low': 'neither',  
+    'cfc_middle': 'neither',  
+    'cfc_high': 'neither',  
+    'cma_prob': 'neither',  
+    'cma_prob_day': 'neither',  
+    'cma_prob_night': 'neither',  
+    'cth': 'neither',  
+    'ctp': 'neither',  
+    'cdnc_liq': 'max'  
+    } # All checked
+
+cdr_claas_folder = {}
+cdr_sarah_folder = {}
+cdr_clara_folder = {}
+cdr_gerb_folder = {}
+keys = range(2004, 2024)
+for i in keys:
+    if i > 2020:
+        cdr_claas_folder[i] = '/net/pc190604/nobackup/users/benas/CLAAS-3/' +\
+            'Level_3/ICDR/'
+        cdr_sarah_folder[i] = '/net/pc190604/nobackup/users/benas/SARAH-3/' +\
+            'Level_3/ICDR/'
+        cdr_clara_folder[i] = '/net/pc190604/nobackup/users/benas/CLARA-A3/' +\
+            'Level_3/ICDR/'
+        cdr_gerb_folder[i] = '/net/pc190604/nobackup/users/benas/GERB/' +\
+            'Level_3/TCDR/'
+    else:
+        cdr_claas_folder[i] = '/net/pc190604/nobackup/users/benas/CLAAS-3/' +\
+            'Level_3/TCDR/'
+        cdr_sarah_folder[i] = '/net/pc190604/nobackup/users/benas/SARAH-3/' +\
+            'Level_3/TCDR/'
+        cdr_clara_folder[i] = '/net/pc190604/nobackup/users/benas/CLARA-A3/' +\
+            'Level_3/TCDR/'
+        cdr_gerb_folder[i] = '/net/pc190604/nobackup/users/benas/GERB/' +\
+            'Level_3/TCDR/'
+                
