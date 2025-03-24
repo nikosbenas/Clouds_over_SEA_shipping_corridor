@@ -11,9 +11,9 @@ This program analyzes time series average CLAAS-3 data over the SE Atlantic ship
 
 from datetime import datetime
 import multiprocessing
-import sys
+# import sys
 import numpy as np
-sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
+# sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 from claas3_dictionaries import FileNameStart, varSymbol
 from shipping_corridor_functions import analyze_annual_trends_from_specific_months, calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_average_corridor_value_per_month, calculate_average_profiles_per_month, calculate_time_series_means, calculate_temporal_mean_corridor_effect, calculate_running_mean, center_data_along_corridor, center_shipping_corridor_perpendicular_lines, check_significance_of_difference, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_change_and_zero_line, plot_time_series, read_lat_lon_arrays, read_monthly_time_series, plot_profile_and_NoShip_line, plot_profile_and_many_NoShip_lines, plot_data_with_mask
 
@@ -40,7 +40,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cal'
+var = 'cfc_day'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
 if var == 'cal':
     data_folder = '/net/pc190604/nobackup/users/benas/SARAH-3/Level_3/' + FileNameStart[var]
@@ -50,7 +50,7 @@ unc_coeff = 0.1
 
 # Select the time period to analyze CLAAS-3 data
 start_year = 2004
-end_year = 2019
+end_year = 2023
 
 # Lats and lons at four corners of region: ul, ur, lr, ll
 # north_lat = 10; south_lat = -35
@@ -101,7 +101,7 @@ centered = {}
 # =============================================================================
 
 # Read CLAAS lat, lon once
-claas3_aux_file = '/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends/claas3_level3_aux_data_005deg.nc'
+claas3_aux_file = '/nobackup/users/benas/CLAAS-3/Level_3/claas3_level3_aux_data_005deg.nc'
 if var == 'cal':
     claas3_aux_file = '/nobackup/users/benas/SARAH-3/Level_3/CALmm/CALmm200401010000004231000101MA.nc'
 lat_claas, lon_claas = read_lat_lon_arrays(claas3_aux_file)
@@ -219,6 +219,12 @@ corridor_effect['std'] = np.nanstd(corridor_effect['profile'][abs(avg_distances_
 corridor_effect['N_points'] = np.nansum(corridor_effect['profile'][abs(avg_distances_short) < core_half_range]) / corridor_effect['mean']
 corridor_effect['unc_mean'] = np.sqrt(((1/corridor_effect['N_points']) * corridor_effect['std']**2) + (unc_coeff * np.nanmean(corridor_effect['profile_unc'][abs(avg_distances_short) < core_half_range])**2))
 corridor_effect['unc_percent'] = 100 * corridor_effect['unc_mean'] / np.nanmean(centered['mean'][abs(avg_distances_short) < core_half_range])
+# Estimate statistical significance of corridor effect
+corridor_effect['2sigma'] = 2 * np.nanstd(corridor_effect['profile'][np.abs(avg_distances < core_half_range)])
+if (corridor_effect['mean'] - corridor_effect['2sigma']) * (corridor_effect['mean'] + corridor_effect['2sigma']) > 0:
+    corridor_effect['stat_significant'] = True
+else:
+    corridor_effect['stat_significant'] = False
 
 # Create maps of time series mean values and uncertainties
 create_map = True
