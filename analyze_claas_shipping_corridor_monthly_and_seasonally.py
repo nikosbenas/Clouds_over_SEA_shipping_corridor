@@ -12,9 +12,7 @@ This program analyzes the seasonal variation of CLAAS-3 data over the SE Atlanti
 
 from datetime import datetime
 import multiprocessing
-import sys
 import numpy as np
-sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 from claas3_dictionaries import FileNameStart, varSymbol
 from shipping_corridor_functions import calculate_NoShip_curve, calculate_area_weighted_average, center_along_corridor_data_and_uncertainties_per_month,  center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_12_monthly_profiles, plot_intra_annual_variation, read_lat_lon_arrays, read_monthly_time_series, plot_profile_and_NoShip_line
 
@@ -41,7 +39,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variables to read and data folder
-var = 'cal'
+var = 'cre_liq'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var]
 if var == 'cal':
     data_folder = '/net/pc190604/nobackup/users/benas/SARAH-3/Level_3/' + FileNameStart[var]
@@ -100,7 +98,7 @@ month_string = {
 # =============================================================================
 
 # Read CLAAS lat, lon once
-claas3_aux_file = '/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends/claas3_level3_aux_data_005deg.nc'
+claas3_aux_file = '/nobackup/users/benas/CLAAS-3/Level_3/claas3_level3_aux_data_005deg.nc'
 if var == 'cal':
     claas3_aux_file = '/nobackup/users/benas/SARAH-3/Level_3/CALmm/CALmm200401010000004231000101MA.nc'
 lat_claas, lon_claas = read_lat_lon_arrays(claas3_aux_file)
@@ -241,6 +239,15 @@ corridor_effect['monthly_std'] = np.array([np.nanstd(corridor_effect['monthly_pr
 corridor_effect['monthly_N'] = np.array([np.round(np.nansum(corridor_effect['monthly_profiles'][abs(avg_distances) < core_half_range, m]) / corridor_effect['monthly_mean'][m]) for m in range(12)])
 
 corridor_effect['monthly_unc'] = np.array([np.sqrt(((1 / corridor_effect['monthly_N'][m]) * (corridor_effect['monthly_std'][m]**2)) + unc_coeff * (np.nanmean(corridor_effect['monthly_profiles_unc'][abs(avg_distances) < core_half_range, m], axis = 0)**2)) for m in range(12)])
+
+# Estimate statistical significance of corridor effect
+corridor_effect['monthly_2sigma'] = [2 * np.nanstd(corridor_effect['monthly_profiles'][abs(avg_distances) < core_half_range, m]) for m in range(12)]
+corridor_effect['monthly_stat_significant'] = []
+for i in range(12):
+    if (corridor_effect['monthly_mean'][i] - corridor_effect['monthly_2sigma'][i]) * (corridor_effect['monthly_mean'][i] + corridor_effect['monthly_2sigma'][i]) > 0:
+        corridor_effect['monthly_stat_significant'].append(True)
+    else:
+        corridor_effect['monthly_stat_significant'].append(False)
 
 # Plot profiles: mean values and differences, separately (one plot/month) and all together. 
 plot_monthly_profiles_separately = True
