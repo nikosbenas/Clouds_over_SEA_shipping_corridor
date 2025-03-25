@@ -13,10 +13,7 @@ This program analyzes the diurnal variation of CLAAS-3 data over the SE Atlantic
 from datetime import datetime
 import numpy as np
 import multiprocessing
-import sys
-
 from shipping_corridor_functions import block_average, calculate_NoShip_curve, calculate_across_corridor_average_and_std, calculate_area_weighted_average, center_shipping_corridor_perpendicular_lines, create_short_across_corridor_profiles, find_angle_bewteen_shipping_corrridor_and_north, find_bounding_box_indices, find_line_perpendicular_to_corridor, find_shipping_corridor_center_coordinates, make_map, plot_all_hourly_profiles, plot_diurnal, plot_profile_and_NoShip_line, read_lat_lon_arrays, read_monthly_time_series
-sys.path.append('/data/windows/m/benas/Documents/CMSAF/CLAAS-3/CLAAS-3_trends')
 from claas3_dictionaries import FileNameStart
 
 
@@ -42,7 +39,7 @@ def process_index(c):
 # =============================================================================
 
 # Define variable to read and data folder
-var = 'cfc'
+var = 'cdnc_liq'
 data_folder = '/net/pc190604/nobackup/users/benas/CLAAS-3/Level_3/' + FileNameStart[var + '_mmdc']
 
 # Uncertainty correlation coefficient for monthly averages
@@ -257,12 +254,26 @@ corridor_effect['N_per_hour'] = np.array([np.round(np.nansum(corridor_effect['me
 
 corridor_effect['unc_per_hour'] = np.array([np.sqrt(((1 / corridor_effect['N_per_hour'][h]) * (corridor_effect['std_per_hour'][h]**2)) + unc_coeff * (np.nanmean(corridor_effect['unc_profile_per_hour'][h, abs(avg_distances) < core_half_range], axis = 0)**2)) for h in range(24)])
 
+# Estimate statistical significance of corridor effect
+corridor_effect['2sigma_per_hour'] = np.array([2 * np.nanstd(corridor_effect['mean_profile_per_hour'][h, abs(avg_distances) < core_half_range]) for h in range(24)])
+
+corridor_effect['stat_significance_per_hour'] = np.empty_like(corridor_effect['2sigma_per_hour'])
+for h in range(24):
+    if (corridor_effect['mean_per_hour'][h] - corridor_effect['2sigma_per_hour'][h]) * (corridor_effect['mean_per_hour'][h] + corridor_effect['2sigma_per_hour'][h]) > 0:
+        corridor_effect['stat_significance_per_hour'][h] = True
+    else:
+        corridor_effect['stat_significance_per_hour'][h] = False
+
 # Remove cases where map is not entirely covered
 corridor_effect['mean_per_hour'][time_series['spatial_Ncells_per_hour'] < lat_claas.size] = np.nan
 corridor_effect['mean_profile_per_hour'][time_series['spatial_Ncells_per_hour'] < lat_claas.size] = np.nan
+corridor_effect['2sigma_per_hour'][time_series['spatial_Ncells_per_hour'] < lat_claas.size] = np.nan
+corridor_effect['stat_significance_per_hour'][time_series['spatial_Ncells_per_hour'] < lat_claas.size] = False
 # Remove cases where map is not entirely covered with all available months
 corridor_effect['mean_per_hour'][time_series['Nmonths_mean_per_hour'] < (np.nanmax(time_series['Nmonths_mean_per_hour'])-1)] = np.nan
 corridor_effect['mean_profile_per_hour'][time_series['Nmonths_mean_per_hour'] < (np.nanmax(time_series['Nmonths_mean_per_hour'])-1)] = np.nan
+corridor_effect['2sigma_per_hour'][time_series['Nmonths_mean_per_hour'] < (np.nanmax(time_series['Nmonths_mean_per_hour'])-1)] = np.nan
+corridor_effect['stat_significance_per_hour'][time_series['Nmonths_mean_per_hour'] < (np.nanmax(time_series['Nmonths_mean_per_hour'])-1)] = False
 
 
 # =============================================================================
@@ -300,6 +311,10 @@ if var != 'cfc':
     corridor_effect['mean_profile_per_hour'][15, :] = np.nan
     corridor_effect['unc_profile_per_hour'][8, :] = np.nan
     corridor_effect['unc_profile_per_hour'][15, :] = np.nan
+    corridor_effect['2sigma_per_hour'][8] = np.nan
+    corridor_effect['2sigma_per_hour'][15] = np.nan
+    corridor_effect['stat_significance_per_hour'][8] = False
+    corridor_effect['stat_significance_per_hour'][15] = False
 
 # 2. Spatial time series averages per hour
 plot_diurnal_spatial_averages = True
